@@ -1,0 +1,59 @@
+# MoE cache is built by default and integrated into main ggml library
+
+# MoE cache header files
+set(GGML_MOE_CACHE_HEADERS
+    ${CMAKE_CURRENT_SOURCE_DIR}/ggml-moe-cache.h
+)
+
+# MoE cache source files (always included)
+set(GGML_MOE_CACHE_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/ggml-moe-cache-prefetch.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ggml-moe-cache-integrate.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ggml-moe-cache-backend.cpp
+)
+
+# CUDA-specific files
+if (GGML_CUDA)
+    list(APPEND GGML_MOE_CACHE_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/ggml-moe-cache-cuda.cu
+    )
+endif()
+
+# HIP-specific files
+if (GGML_HIP)
+    list(APPEND GGML_MOE_CACHE_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/ggml-moe-cache-hip.cpp
+    )
+endif()
+
+# Add MoE cache sources to main ggml library
+target_sources(ggml PRIVATE ${GGML_MOE_CACHE_SOURCES})
+target_compile_definitions(ggml PRIVATE GGML_BUILD_MOE_CACHE)
+
+# Include directories for MoE cache
+target_include_directories(ggml PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
+    ${CMAKE_CURRENT_SOURCE_DIR}/../include
+)
+
+# CUDA-specific configuration
+if (GGML_CUDA)
+    enable_language(CUDA)
+    set_property(TARGET ggml PROPERTY CUDA_STANDARD 14)
+    target_compile_definitions(ggml PRIVATE GGML_CUDA_MOE_CACHE)
+endif()
+
+# HIP-specific configuration
+if (GGML_HIP)
+    target_compile_definitions(ggml PRIVATE GGML_HIP_MOE_CACHE)
+endif()
+
+# C++ standard
+set_property(TARGET ggml PROPERTY CXX_STANDARD 14)
+set_property(TARGET ggml PROPERTY CXX_STANDARD_REQUIRED ON)
+
+# Install MoE cache header
+install(FILES ${GGML_MOE_CACHE_HEADERS}
+    DESTINATION include/ggml
+)
