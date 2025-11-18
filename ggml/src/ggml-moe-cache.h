@@ -55,7 +55,7 @@ struct ggml_moe_cache_interface {
     // Initialize cache for a backend
     virtual ggml_moe_cache* create_cache(
         ggml_backend_t backend,
-        const ggml_moe_cache_config& config,
+        const ggml_moe_cache_config* config,
         int num_experts
     ) = 0;
     

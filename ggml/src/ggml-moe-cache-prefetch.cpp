@@ -1,9 +1,9 @@
 #include "ggml-moe-cache.h"
+#include "ggml.h"
 #include <algorithm>
 #include <set>
-#include <cmath>
 
-// Pre-fetching engine implementation
+// Pre-fetch engine implementation
 
 std::vector<int> ggml_moe_prefetch_engine::predict_next_experts(
     const std::vector<int>& current_experts,
@@ -11,58 +11,49 @@ std::vector<int> ggml_moe_prefetch_engine::predict_next_experts(
 ) {
     std::lock_guard<std::mutex> lock(engine_mutex);
     
-    if (current_experts.empty() || top_k <= 0) {
-        return {};
-    }
+    std::vector<int> predictions;
+    std::set<int> seen_experts(current_experts.begin(), current_experts.end());
     
-    // Combine predictions from different strategies
-    std::unordered_map<int, double> expert_scores;
-    
-    // Strategy 1: Locality-based prediction (recently used experts)
-    auto locality_predictions = predict_locality(current_experts);
-    for (int expert : locality_predictions) {
-        expert_scores[expert] += 1.0;
-    }
-    
-    // Strategy 2: Co-occurrence based prediction
-    if (!expert_cooccurrence.empty()) {
-        for (int current_expert : current_experts) {
-            if (current_expert >= 0 && current_expert < (int)expert_cooccurrence.size()) {
-                const auto& cooccurrence = expert_cooccurrence[current_expert];
-                for (size_t i = 0; i < cooccurrence.size(); ++i) {
-                    if (cooccurrence[i] > 0) {
-                        // Weight by co-occurrence frequency
-                        double score = std::log(1.0 + cooccurrence[i]);
-                        expert_scores[i] += score;
-                    }
+    // Method 1: Co-occurrence based prediction
+    for (int expert : current_experts) {
+        if (expert >= 0 && expert < (int)expert_cooccurrence.size()) {
+            // Find experts that frequently co-occur with current experts
+            const auto& cooccur = expert_cooccurrence[expert];
+            
+            // Get top co-occurring experts
+            std::vector<int> candidate_experts;
+            for (int i = 0; i < (int)cooccur.size(); ++i) {
+                if (cooccur[i] > 0 && seen_experts.find(i) == seen_experts.end()) {
+                    candidate_experts.push_back(i);
                 }
+            }
+            
+            // Sort by co-occurrence frequency
+            std::sort(candidate_experts.begin(), candidate_experts.end(),
+                [&cooccur](int a, int b) {
+                    return cooccur[a] > cooccur[b];
+                });
+            
+            // Add top candidates
+            for (int i = 0; i < std::min(top_k/2, (int)candidate_experts.size()); ++i) {
+                predictions.push_back(candidate_experts[i]);
+                seen_experts.insert(candidate_experts[i]);
             }
         }
     }
     
-    // Strategy 3: Simple temporal locality (recent experts)
-    for (int expert : recent_experts) {
-        expert_scores[expert] += 0.5;  // Lower weight for temporal locality
+    // Method 2: Locality-based prediction
+    std::vector<int> locality_preds = predict_locality(recent_experts);
+    for (int expert : locality_preds) {
+        if (seen_experts.find(expert) == seen_experts.end() && predictions.size() < (size_t)top_k) {
+            predictions.push_back(expert);
+            seen_experts.insert(expert);
+        }
     }
     
-    // Remove experts that are already in current batch
-    for (int expert : current_experts) {
-        expert_scores.erase(expert);
-    }
-    
-    // Sort by score and return top_k predictions
-    std::vector<std::pair<int, double>> scored_experts(
-        expert_scores.begin(), expert_scores.end()
-    );
-    
-    std::sort(scored_experts.begin(), scored_experts.end(),
-        [](const auto& a, const auto& b) {
-            return a.second > b.second;
-        });
-    
-    std::vector<int> predictions;
-    for (size_t i = 0; i < std::min(size_t(top_k), scored_experts.size()); ++i) {
-        predictions.push_back(scored_experts[i].first);
+    // Trim to requested size
+    if (predictions.size() > (size_t)top_k) {
+        predictions.resize(top_k);
     }
     
     return predictions;
@@ -74,57 +65,56 @@ void ggml_moe_prefetch_engine::update_patterns(
 ) {
     std::lock_guard<std::mutex> lock(engine_mutex);
     
-    // Update recent experts list
-    update_recent_experts(used_experts);
-    
     // Update co-occurrence matrix
-    if (!expert_cooccurrence.empty()) {
-        for (size_t i = 0; i < used_experts.size(); ++i) {
-            int expert1 = used_experts[i];
-            if (expert1 >= 0 && expert1 < (int)expert_cooccurrence.size()) {
-                for (size_t j = i + 1; j < used_experts.size(); ++j) {
-                    int expert2 = used_experts[j];
-                    if (expert2 >= 0 && expert2 < (int)expert_cooccurrence.size()) {
-                        // Increment co-occurrence count
-                        expert_cooccurrence[expert1][expert2]++;
-                        expert_cooccurrence[expert2][expert1]++;
-                    }
-                }
-            }
+    for (size_t i = 0; i < used_experts.size(); ++i) {
+        int expert1 = used_experts[i];
+        if (expert1 < 0 || expert1 >= (int)expert_cooccurrence.size()) continue;
+        
+        for (size_t j = i + 1; j < used_experts.size(); ++j) {
+            int expert2 = used_experts[j];
+            if (expert2 < 0 || expert2 >= (int)expert_cooccurrence.size()) continue;
+            
+            // Increment co-occurrence count
+            expert_cooccurrence[expert1][expert2]++;
+            expert_cooccurrence[expert2][expert1]++;
         }
     }
     
-    // Update token history (if tokens are provided)
-    if (!tokens.empty()) {
-        token_history.insert(token_history.end(), tokens.begin(), tokens.end());
-        if (token_history.size() > HISTORY_SIZE) {
-            token_history.erase(
-                token_history.begin(),
-                token_history.begin() + (token_history.size() - HISTORY_SIZE)
-            );
-        }
+    // Update recent experts
+    update_recent_experts(used_experts);
+    
+    // Update token history
+    token_history.insert(token_history.end(), tokens.begin(), tokens.end());
+    if (token_history.size() > HISTORY_SIZE) {
+        token_history.erase(token_history.begin(), token_history.end() - HISTORY_SIZE);
     }
 }
 
 std::vector<int> ggml_moe_prefetch_engine::predict_locality(
     const std::vector<int>& recent_experts
 ) {
-    std::set<int> predictions;
+    std::vector<int> predictions;
     
-    // Simple locality: predict experts with similar IDs
+    if (recent_experts.empty()) return predictions;
+    
+    // Simple locality: predict experts that are numerically close to recently used ones
+    std::set<int> seen_experts(recent_experts.begin(), recent_experts.end());
+    
     for (int expert : recent_experts) {
-        // Predict nearby expert IDs (with wrap-around for small expert counts)
+        // Check neighboring experts
         for (int offset = -2; offset <= 2; ++offset) {
             if (offset == 0) continue;
             
-            int nearby_expert = expert + offset;
-            if (nearby_expert >= 0 && nearby_expert < (int)expert_cooccurrence.size()) {
-                predictions.insert(nearby_expert);
+            int neighbor = expert + offset;
+            if (neighbor >= 0 && neighbor < (int)expert_cooccurrence.size() &&
+                seen_experts.find(neighbor) == seen_experts.end()) {
+                predictions.push_back(neighbor);
+                seen_experts.insert(neighbor);
             }
         }
     }
     
-    return std::vector<int>(predictions.begin(), predictions.end());
+    return predictions;
 }
 
 void ggml_moe_prefetch_engine::update_recent_experts(const std::vector<int>& experts) {
@@ -254,7 +244,8 @@ ggml_moe_cache::ggml_moe_cache(
     expert_stats.resize(num_experts);
     for (auto& stats : expert_stats) {
         stats.access_count = 0;
-        stats.last_access_time = std::chrono::steady_clock::now();
+        stats.access_frequency = 0.0;
+        stats.is_cached = false;
         stats.access_frequency = 0.0;
         stats.is_cached = false;
     }

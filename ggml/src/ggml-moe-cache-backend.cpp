@@ -1,6 +1,23 @@
 #include "ggml-moe-cache.h"
 #include "ggml-backend.h"
 #include "ggml-backend-impl.h"
+#include "ggml.h"
+
+// Backend detection functions (simplified versions)
+static bool ggml_backend_is_cuda(ggml_backend_t backend) {
+    return backend != nullptr && strstr(ggml_backend_name(backend), "CUDA") != nullptr;
+}
+
+static bool ggml_backend_is_hip(ggml_backend_t backend) {
+    return backend != nullptr && strstr(ggml_backend_name(backend), "HIP") != nullptr;
+}
+
+// Forward declarations for backend-specific interfaces
+extern "C" {
+    const ggml_moe_cache_interface* ggml_moe_cache_get_interface_cuda();
+    const ggml_moe_cache_interface* ggml_moe_cache_get_interface_hip();
+}
+
 #include <algorithm>
 #include <vector>
 #include <queue>
@@ -259,9 +276,10 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
 struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
     ggml_moe_cache* create_cache(
         ggml_backend_t backend,
-        const ggml_moe_cache_config& config,
+        const ggml_moe_cache_config* config,
         int num_experts
     ) override {
+        if (!config) return nullptr;
         // Check if this is a GPU backend
         ggml_backend_dev_t device = ggml_backend_get_device(backend);
         if (!device) return nullptr;
@@ -273,7 +291,7 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
         }
         
         // Create cache with null stream (will use default)
-        return new ggml_moe_cache_gpu(backend, config, num_experts, this, nullptr);
+        return new ggml_moe_cache_gpu(backend, *config, num_experts, this, nullptr);
     }
     
     ggml_backend_buffer_t get_expert_async(
@@ -358,7 +376,7 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
             );
             
             if (gpu_buffer) {
-                std::lock_guard<std::mutex> lock(cache->cache_mutex);
+                std::lock_guard<std::mutex> lock((std::mutex&)cache->cache_mutex);
                 cache->cache_map[expert_id] = gpu_buffer;
                 cache->lru_list.push_front(expert_id);
                 cache->lru_iter[expert_id] = cache->lru_list.begin();
@@ -374,7 +392,7 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
     ) override {
         if (!cache) return;
         
-        std::lock_guard<std::mutex> lock(cache->cache_mutex);
+        std::lock_guard<std::mutex> lock((std::mutex&)cache->cache_mutex);
         
         // Update access statistics
         auto now = std::chrono::steady_clock::now();
@@ -401,7 +419,7 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
     ) override {
         if (!cache) return ggml_moe_cache_stats{};
         
-        std::lock_guard<std::mutex> lock(cache->cache_mutex);
+        std::lock_guard<std::mutex> lock((std::mutex&)cache->cache_mutex);
         ggml_moe_cache_stats stats = cache->stats;
         
         // Calculate derived statistics
@@ -423,7 +441,7 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
     ) override {
         if (!cache) return;
         
-        std::lock_guard<std::mutex> lock(cache->cache_mutex);
+        std::lock_guard<std::mutex> lock((std::mutex&)cache->cache_mutex);
         memset(&cache->stats, 0, sizeof(cache->stats));
     }
     
@@ -432,7 +450,7 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
     ) override {
         if (!cache) return;
         
-        std::lock_guard<std::mutex> lock(cache->cache_mutex);
+        std::lock_guard<std::mutex> lock((std::mutex&)cache->cache_mutex);
         
         // Free all cached buffers
         for (auto& [expert_id, buffer] : cache->cache_map) {
@@ -465,17 +483,17 @@ ggml_moe_cache_interface* ggml_moe_cache_get_interface_gpu() {
 // Update backend detection to include generic GPU backend
 ggml_moe_cache_interface* ggml_moe_cache_get_interface(ggml_backend_t backend) {
     if (ggml_backend_is_cuda(backend)) {
-        return ggml_moe_cache_get_interface_cuda();
+        return const_cast<ggml_moe_cache_interface*>(ggml_moe_cache_get_interface_cuda());
     }
     if (ggml_backend_is_hip(backend)) {
-        return ggml_moe_cache_get_interface_hip();
+        return const_cast<ggml_moe_cache_interface*>(ggml_moe_cache_get_interface_hip());
     }
     
     // Check if this is a GPU backend (Vulkan, SYCL, Metal, etc.)
     ggml_backend_dev_t device = ggml_backend_get_device(backend);
     if (device) {
         enum ggml_backend_dev_type dev_type = ggml_backend_dev_type(device);
-        if (dev_type == GGML_BACKEND_DEVICE_TYPE_GPU || 
+        if (dev_type == GGML_BACKEND_DEVICE_TYPE_GPU ||
             dev_type == GGML_BACKEND_DEVICE_TYPE_IGPU) {
             return ggml_moe_cache_get_interface_gpu();
         }

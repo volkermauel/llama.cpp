@@ -13,6 +13,7 @@
 
 #include "ggml-opt.h"
 #include "llama-cpp.h"
+#include "llama-moe-cache-params.h"
 
 #ifdef _WIN32
 #define DIRECTORY_SEPARATOR '\\'
@@ -321,6 +322,9 @@ struct common_params {
     struct common_params_diffusion   diffusion;
 
     struct common_params_model model;
+
+    // MoE cache parameters
+    struct llama_moe_cache_params moe_cache_params;
 
     std::string model_alias          = ""; // model alias                                                   // NOLINT
     std::string hf_token             = ""; // HF token                                                      // NOLINT

@@ -1,6 +1,7 @@
 #include "ggml-moe-cache.h"
 #include "ggml.h"
 #include "ggml-backend.h"
+#include "ggml-backend-impl.h"
 #include <vector>
 #include <algorithm>
 

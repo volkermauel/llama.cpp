@@ -452,3 +452,6 @@ if (BUILD_SHARED_LIBS)
         target_compile_definitions(${target} PUBLIC  GGML_SHARED)
     endforeach()
 endif()
+
+# Include MoE cache support
+include(${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists-moe-cache.txt)

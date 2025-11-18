@@ -3154,5 +3154,38 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
         }
     ).set_examples({LLAMA_EXAMPLE_SERVER}));
 
+    // MoE cache parameters
+    add_opt(common_arg(
+        {"--moe-gpu-experts"}, "N",
+        "number of experts to keep in GPU memory (default: 0 = disabled)",
+        [](common_params & params, int value) {
+            params.moe_cache_params.n_gpu_experts = value;
+        }
+    ).set_env("LLAMA_ARG_MOE_GPU_EXPERTS"));
+    
+    add_opt(common_arg(
+        {"--moe-vram-budget"}, "N",
+        "VRAM budget in MB for MoE experts (default: 0 = auto)",
+        [](common_params & params, int value) {
+            params.moe_cache_params.vram_budget_mb = value;
+        }
+    ).set_env("LLAMA_ARG_MOE_VRAM_BUDGET"));
+    
+    add_opt(common_arg(
+        {"--moe-no-cache"},
+        "disable MoE expert caching",
+        [](common_params & params) {
+            params.moe_cache_params.no_cache = true;
+        }
+    ).set_env("LLAMA_ARG_MOE_NO_CACHE"));
+    
+    add_opt(common_arg(
+        {"--moe-no-mmap"},
+        "disable mmap for MoE expert loading",
+        [](common_params & params) {
+            params.moe_cache_params.no_mmap = true;
+        }
+    ).set_env("LLAMA_ARG_MOE_NO_MMAP"));
+
     return ctx_arg;
 }
