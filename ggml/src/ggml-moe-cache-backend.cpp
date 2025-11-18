@@ -15,8 +15,12 @@ static bool ggml_backend_is_hip(ggml_backend_t backend) {
 
 // Forward declarations for backend-specific interfaces
 extern "C" {
+#ifdef GGML_CUDA_MOE_CACHE
     const ggml_moe_cache_interface* ggml_moe_cache_get_interface_cuda();
+#endif
+#ifdef GGML_HIP_MOE_CACHE
     const ggml_moe_cache_interface* ggml_moe_cache_get_interface_hip();
+#endif
 }
 
 // Forward declaration for GPU interface function
@@ -580,12 +584,16 @@ static ggml_moe_cache_interface* ggml_moe_cache_get_interface_gpu_impl() {
 
 // Update backend detection to include generic GPU backend
 ggml_moe_cache_interface* ggml_moe_cache_get_interface(ggml_backend_t backend) {
+#ifdef GGML_CUDA_MOE_CACHE
     if (ggml_backend_is_cuda(backend)) {
         return const_cast<ggml_moe_cache_interface*>(ggml_moe_cache_get_interface_cuda());
     }
+#endif
+#ifdef GGML_HIP_MOE_CACHE
     if (ggml_backend_is_hip(backend)) {
         return const_cast<ggml_moe_cache_interface*>(ggml_moe_cache_get_interface_hip());
     }
+#endif
     
 #ifdef GGML_GPU_MOE_CACHE
     // Check if this is a GPU backend (Vulkan, SYCL, Metal, etc.)
