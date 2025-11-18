@@ -130,7 +130,7 @@ size_t model_identifier_hash::operator()(const model_identifier& id) const {
 
 // ML predictor implementation
 std::vector<float> ml_predictor::predict(const std::vector<float>& features) {
-    if (features.size() != feature_size) {
+    if (features.size() != static_cast<size_t>(feature_size)) {
         return std::vector<float>(num_experts, 0.0f);
     }
 
@@ -585,8 +585,7 @@ std::vector<int> ml_prefetch_engine::predict_next_experts(
 
     // Extract features
     std::vector<float> features = extract_features(
-        current_experts, recent_tokens, layer_id, position,
-        predictor_->num_experts, predictor_->feature_size
+        current_experts, recent_tokens, layer_id, position
     );
 
     // Get predictions from ML model
@@ -650,8 +649,7 @@ void ml_prefetch_engine::update_with_actual(
 
     // Extract features (reuse the same feature extraction as prediction)
     std::vector<float> features = extract_features(
-        predicted_experts, context_tokens, layer_id, position,
-        predictor_->num_experts, predictor_->feature_size
+        predicted_experts, context_tokens, layer_id, position
     );
 
     // Create target distribution (one-hot encoding of actual experts)
@@ -796,7 +794,17 @@ float ml_prefetch_engine::get_prediction_confidence() const {
 }
 
 ml_prefetch_stats ml_prefetch_engine::get_stats() const {
-    return stats_;
+    ml_prefetch_stats stats;
+    stats.total_predictions = stats_.total_predictions.load();
+    stats.correct_predictions = stats_.correct_predictions.load();
+    stats.training_samples = stats_.training_samples.load();
+    stats.model_updates = stats_.model_updates.load();
+    stats.persistence_saves = stats_.persistence_saves.load();
+    stats.persistence_loads = stats_.persistence_loads.load();
+    stats.current_accuracy = stats_.current_accuracy.load();
+    stats.average_prediction_time_ms = stats_.average_prediction_time_ms.load();
+    stats.average_learning_time_ms = stats_.average_learning_time_ms.load();
+    return stats;
 }
 
 bool ml_prefetch_engine::save_model() {
@@ -896,7 +904,7 @@ std::string ml_prefetch_engine::get_model_filepath() const {
         return "";
     }
 
-    std::string cache_dir = config_.ml_model_cache_dir;
+    std::string cache_dir = config_.model_cache_dir;
     if (cache_dir.empty()) {
         cache_dir = fs_get_cache_directory() + "/moe_ml";
     }
@@ -974,7 +982,7 @@ void* ggml_moe_ml_prefetch_create(
     ggml_moe_ml::ml_prefetch_config config;
     config.enabled = enable_learning;
     if (cache_dir) {
-        config.ml_model_cache_dir = cache_dir;
+        config.model_cache_dir = cache_dir;
     }
 
     auto model_id = ggml_moe_ml::ml_prefetch_utils::create_model_identifier(
@@ -1071,7 +1079,18 @@ void ggml_moe_ml_prefetch_get_stats(
 ) {
     if (!engine || !stats) return;
     auto* ml_engine = static_cast<ggml_moe_ml::ml_prefetch_engine*>(engine);
-    *stats = ml_engine->get_stats();
+    ml_prefetch_stats engine_stats = ml_engine->get_stats();
+    
+    // Manually copy each atomic member
+    stats->total_predictions = engine_stats.total_predictions.load();
+    stats->correct_predictions = engine_stats.correct_predictions.load();
+    stats->training_samples = engine_stats.training_samples.load();
+    stats->model_updates = engine_stats.model_updates.load();
+    stats->persistence_saves = engine_stats.persistence_saves.load();
+    stats->persistence_loads = engine_stats.persistence_loads.load();
+    stats->current_accuracy = engine_stats.current_accuracy.load();
+    stats->average_prediction_time_ms = engine_stats.average_prediction_time_ms.load();
+    stats->average_learning_time_ms = engine_stats.average_learning_time_ms.load();
 }
 
 void ggml_moe_ml_prefetch_reset(void* engine) {
