@@ -3167,7 +3167,7 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
         {"--moe-vram-budget"}, "N",
         "VRAM budget in MB for MoE experts (default: 0 = auto)",
         [](common_params & params, int value) {
-            params.moe_cache_params.vram_budget_mb = value;
+            params.moe_cache_params.vram_budget = value;
         }
     ).set_env("LLAMA_ARG_MOE_VRAM_BUDGET"));
     
@@ -3175,7 +3175,7 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
         {"--moe-no-cache"},
         "disable MoE expert caching",
         [](common_params & params) {
-            params.moe_cache_params.no_cache = true;
+            params.moe_cache_params.enable_cache = false;
         }
     ).set_env("LLAMA_ARG_MOE_NO_CACHE"));
     
@@ -3183,7 +3183,7 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
         {"--moe-no-mmap"},
         "disable mmap for MoE expert loading",
         [](common_params & params) {
-            params.moe_cache_params.no_mmap = true;
+            params.moe_cache_params.experts_no_mmap = true;
         }
     ).set_env("LLAMA_ARG_MOE_NO_MMAP"));
 
