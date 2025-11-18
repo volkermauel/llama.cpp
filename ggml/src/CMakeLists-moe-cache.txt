@@ -36,12 +36,9 @@ target_include_directories(ggml PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/..
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
-)
-
-# Add include directories for common headers and dependencies
-target_include_directories(ggml PUBLIC
-    ${CMAKE_SOURCE_DIR}/common
+    ${CMAKE_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/common
 )
 
 # CUDA-specific configuration
