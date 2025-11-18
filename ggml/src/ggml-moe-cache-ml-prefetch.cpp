@@ -423,11 +423,8 @@ bool persistence_manager::save_model(
     file.write(reinterpret_cast<const char*>(predictor.b2.data()), b2_size * sizeof(float));
 
     // Write statistics
-    uint64_t training_samples = stats.training_samples.load();
-    file.write(reinterpret_cast<const char*>(&training_samples), sizeof(uint64_t));
-
-    float current_accuracy = stats.current_accuracy.load();
-    file.write(reinterpret_cast<const char*>(&current_accuracy), sizeof(float));
+    file.write(reinterpret_cast<const char*>(&stats.training_samples), sizeof(uint64_t));
+    file.write(reinterpret_cast<const char*>(&stats.current_accuracy), sizeof(double));
 
     // Write configuration
     file.write(reinterpret_cast<const char*>(&config.learning_rate), sizeof(float));
@@ -486,13 +483,8 @@ bool persistence_manager::load_model(
     file.read(reinterpret_cast<char*>(predictor.b2.data()), b2_size * sizeof(float));
 
     // Read statistics
-    uint64_t training_samples;
-    file.read(reinterpret_cast<char*>(&training_samples), sizeof(uint64_t));
-    stats.training_samples = training_samples;
-
-    float current_accuracy;
-    file.read(reinterpret_cast<char*>(&current_accuracy), sizeof(float));
-    stats.current_accuracy = current_accuracy;
+    file.read(reinterpret_cast<char*>(&stats.training_samples), sizeof(uint64_t));
+    file.read(reinterpret_cast<char*>(&stats.current_accuracy), sizeof(double));
 
     // Read configuration
     file.read(reinterpret_cast<char*>(&config.learning_rate), sizeof(float));
@@ -870,7 +862,15 @@ void ml_prefetch_engine::reset_model() {
     }
     
     // Reset statistics
-    stats_ = ml_prefetch_stats();
+    stats_.total_predictions = 0;
+    stats_.correct_predictions = 0;
+    stats_.training_samples = 0;
+    stats_.model_updates = 0;
+    stats_.persistence_saves = 0;
+    stats_.persistence_loads = 0;
+    stats_.current_accuracy = 0.0;
+    stats_.average_prediction_time_ms = 0.0;
+    stats_.average_learning_time_ms = 0.0;
     
     is_ready_ = false;
 }
@@ -1088,19 +1088,8 @@ void ggml_moe_ml_prefetch_get_stats(
     if (!engine || !stats) return;
     auto* ml_engine = static_cast<ggml_moe_ml::ml_prefetch_engine*>(engine);
     
-    // Get stats from engine and manually copy each atomic value
-    ml_prefetch_stats engine_stats = ml_engine->get_stats();
-    
-    // Manually copy each atomic member
-    stats->total_predictions = engine_stats.total_predictions.load();
-    stats->correct_predictions = engine_stats.correct_predictions.load();
-    stats->training_samples = engine_stats.training_samples.load();
-    stats->model_updates = engine_stats.model_updates.load();
-    stats->persistence_saves = engine_stats.persistence_saves.load();
-    stats->persistence_loads = engine_stats.persistence_loads.load();
-    stats->current_accuracy = engine_stats.current_accuracy.load();
-    stats->average_prediction_time_ms = engine_stats.average_prediction_time_ms.load();
-    stats->average_learning_time_ms = engine_stats.average_learning_time_ms.load();
+    // Get stats from engine (already returns non-atomic values)
+    *stats = ml_engine->get_stats();
 }
 
 void ggml_moe_ml_prefetch_reset(void* engine) {

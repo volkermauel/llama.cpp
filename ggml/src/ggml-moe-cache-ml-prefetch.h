@@ -42,15 +42,15 @@ struct ml_prefetch_config {
 
 // Statistics for ML prefetching
 struct ml_prefetch_stats {
-    std::atomic<uint64_t> total_predictions{0};
-    std::atomic<uint64_t> correct_predictions{0};
-    std::atomic<uint64_t> training_samples{0};
-    std::atomic<uint64_t> model_updates{0};
-    std::atomic<uint64_t> persistence_saves{0};
-    std::atomic<uint64_t> persistence_loads{0};
-    std::atomic<double> current_accuracy{0.0};
-    std::atomic<double> average_prediction_time_ms{0.0};
-    std::atomic<double> average_learning_time_ms{0.0};
+    uint64_t total_predictions = 0;
+    uint64_t correct_predictions = 0;
+    uint64_t training_samples = 0;
+    uint64_t model_updates = 0;
+    uint64_t persistence_saves = 0;
+    uint64_t persistence_loads = 0;
+    double current_accuracy = 0.0;
+    double average_prediction_time_ms = 0.0;
+    double average_learning_time_ms = 0.0;
 };
 
 // Model identifier based on model configuration
@@ -138,8 +138,18 @@ private:
     std::unique_ptr<pattern_analyzer> pattern_analyzer_;
     std::unique_ptr<persistence_manager> persistence_manager_;
     
-    // Statistics
-    ml_prefetch_stats stats_;
+    // Internal atomic statistics for thread-safe updates
+    struct {
+        std::atomic<uint64_t> total_predictions{0};
+        std::atomic<uint64_t> correct_predictions{0};
+        std::atomic<uint64_t> training_samples{0};
+        std::atomic<uint64_t> model_updates{0};
+        std::atomic<uint64_t> persistence_saves{0};
+        std::atomic<uint64_t> persistence_loads{0};
+        std::atomic<double> current_accuracy{0.0};
+        std::atomic<double> average_prediction_time_ms{0.0};
+        std::atomic<double> average_learning_time_ms{0.0};
+    } stats_;
     
     // Thread safety
     mutable std::mutex engine_mutex_;
