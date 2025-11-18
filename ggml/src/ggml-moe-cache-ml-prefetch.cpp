@@ -1,7 +1,6 @@
 #include "ggml-moe-cache-ml-prefetch.h"
 #include "ggml-moe-cache.h"
 #include "ggml.h"
-#include "common/common.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -11,6 +10,91 @@
 #include <random>
 #include <sstream>
 #include <set>
+
+// Platform-specific headers for filesystem utilities
+#ifdef _WIN32
+#include <direct.h>
+#include <windows.h>
+#else
+#include <sys/stat.h>
+#include <unistd.h>
+#include <pwd.h>
+#endif
+#include <cstdlib>
+
+// Local filesystem utility functions to avoid dependency on common library
+namespace {
+
+// Create directory and all parent directories if they don't exist
+bool fs_create_directory_with_parents(const std::string & path) {
+#ifdef _WIN32
+    int ret = _mkdir(path.c_str());
+    if (ret == 0) return true;
+    if (errno == EEXIST) return true;
+    
+    // Try creating parent directories
+    size_t pos = path.find_last_of("/\\");
+    if (pos != std::string::npos && pos > 0) {
+        std::string parent = path.substr(0, pos);
+        if (fs_create_directory_with_parents(parent)) {
+            ret = _mkdir(path.c_str());
+            return ret == 0 || errno == EEXIST;
+        }
+    }
+    return false;
+#else
+    // Unix-like systems (Linux, macOS)
+    int ret = mkdir(path.c_str(), 0755);
+    if (ret == 0) return true;
+    if (errno == EEXIST) return true;
+    
+    // Try creating parent directories
+    size_t pos = path.find_last_of('/');
+    if (pos != std::string::npos && pos > 0) {
+        std::string parent = path.substr(0, pos);
+        if (fs_create_directory_with_parents(parent)) {
+            ret = mkdir(path.c_str(), 0755);
+            return ret == 0 || errno == EEXIST;
+        }
+    }
+    return false;
+#endif
+}
+
+// Get the system cache directory
+std::string fs_get_cache_directory() {
+    std::string cache_directory;
+    
+    // Check environment variable first
+    const char* xdg_cache_home = getenv("XDG_CACHE_HOME");
+    if (xdg_cache_home && xdg_cache_home[0] != '\0') {
+        cache_directory = xdg_cache_home;
+        cache_directory += "/llama.cpp";
+        return cache_directory;
+    }
+    
+    // Check HOME environment variable
+    const char* home_dir = getenv("HOME");
+    if (home_dir && home_dir[0] != '\0') {
+        cache_directory = home_dir;
+        cache_directory += "/.cache/llama.cpp";
+        return cache_directory;
+    }
+    
+    // Fallback: try to get home directory from passwd
+    struct passwd* pw = getpwuid(getuid());
+    if (pw && pw->pw_dir) {
+        cache_directory = pw->pw_dir;
+        cache_directory += "/.cache/llama.cpp";
+        return cache_directory;
+    }
+    
+    // Last resort: use /tmp
+    cache_directory = "/tmp/llama.cpp.cache";
+    return cache_directory;
+}
+
+} // anonymous namespace
 
 namespace ggml_moe_ml {
 
