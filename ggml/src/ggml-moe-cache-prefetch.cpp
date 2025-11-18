@@ -164,7 +164,6 @@ ggml_moe_cache* ggml_moe_cache_init(
     // Create cache using backend interface
     return interface->create_cache(backend, config, num_experts);
 }
-}
 
 void ggml_moe_cache_free(
     ggml_moe_cache* cache

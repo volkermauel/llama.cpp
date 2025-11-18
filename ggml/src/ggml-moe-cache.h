@@ -231,6 +231,27 @@ GGML_API void ggml_moe_cache_clear(
     ggml_moe_cache* cache
 );
 
+// Initialize cache for a model
+GGML_API ggml_moe_cache* ggml_moe_cache_init_for_model(
+    ggml_backend_t backend,
+    const ggml_tensor* expert_tensor
+);
+
+// Log cache statistics
+GGML_API void ggml_moe_cache_log_stats(const ggml_moe_cache* cache);
+
+// Reset cache for new inference session
+GGML_API void ggml_moe_cache_reset_session(ggml_moe_cache* cache);
+
+// Helper function to check if cache should be used for a tensor
+GGML_API bool ggml_moe_should_use_cache(const ggml_tensor* tensor);
+
+// Cached version of ggml_mul_mat_id for MoE operations
+GGML_API void ggml_mul_mat_id_cached(
+    ggml_tensor* dst,
+    ggml_moe_cache* cache
+);
+
 // Get cache interface for backend
 GGML_API ggml_moe_cache_interface* ggml_moe_cache_get_interface(
     ggml_backend_t backend

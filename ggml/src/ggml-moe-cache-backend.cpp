@@ -165,6 +165,7 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
     }
     // Calculate expert size in bytes
     size_t get_expert_size(const ggml_tensor* expert_tensor, int expert_id) {
+        (void)expert_id; // Mark as unused
         size_t expert_bytes = ggml_nbytes(expert_tensor) / expert_tensor->ne[2];
         return expert_bytes;
     }
@@ -259,6 +260,7 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
         const ggml_tensor* expert_tensor,
         void* compute_stream
     ) {
+        (void)compute_stream; // Mark as unused
         // Calculate expert size and offset
         size_t expert_size = get_expert_size(expert_tensor, expert_id);
         size_t expert_offset = expert_id * expert_size;
@@ -429,7 +431,7 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
             );
             
             if (gpu_buffer) {
-                std::lock_guard<std::mutex> lock((std::mutex&)cache->cache_mutex);
+                std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(cache->cache_mutex));
                 cache->cache_map[expert_id] = gpu_buffer;
                 cache->lru_list.push_front(expert_id);
                 cache->lru_iter[expert_id] = cache->lru_list.begin();
@@ -445,7 +447,7 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
     ) override {
         if (!cache) return;
         
-        std::lock_guard<std::mutex> lock((std::mutex&)cache->cache_mutex);
+        std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(cache->cache_mutex));
         
         // Update access statistics
         auto now = std::chrono::steady_clock::now();
@@ -484,7 +486,7 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
     ) override {
         if (!cache) return ggml_moe_cache_stats{};
         
-        std::lock_guard<std::mutex> lock((std::mutex&)cache->cache_mutex);
+        std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(cache->cache_mutex));
         ggml_moe_cache_stats stats = cache->stats;
         
         // Calculate derived statistics
@@ -506,7 +508,7 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
     ) override {
         if (!cache) return;
         
-        std::lock_guard<std::mutex> lock((std::mutex&)cache->cache_mutex);
+        std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(cache->cache_mutex));
         memset(&cache->stats, 0, sizeof(cache->stats));
     }
     
@@ -515,7 +517,7 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
     ) override {
         if (!cache) return;
         
-        std::lock_guard<std::mutex> lock((std::mutex&)cache->cache_mutex);
+        std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(cache->cache_mutex));
         
         // Free all cached buffers
         for (auto& [expert_id, buffer] : cache->cache_map) {
@@ -539,8 +541,16 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
     }
 };
 
+// Forward declaration for the GPU interface function
+static ggml_moe_cache_interface* ggml_moe_cache_get_interface_gpu_impl();
+
 // Get generic GPU cache interface
 ggml_moe_cache_interface* ggml_moe_cache_get_interface_gpu() {
+    return ggml_moe_cache_get_interface_gpu_impl();
+}
+
+// Implementation
+static ggml_moe_cache_interface* ggml_moe_cache_get_interface_gpu_impl() {
     static ggml_moe_cache_interface_gpu interface;
     return &interface;
 }

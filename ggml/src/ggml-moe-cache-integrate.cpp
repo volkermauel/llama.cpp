@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cstring>
 #include <string>
+#include <cinttypes>
 
 // Integration of MoE cache with existing ggml operations
 
@@ -218,12 +219,12 @@ void ggml_moe_cache_log_stats(const ggml_moe_cache* cache) {
     
     // Log cache statistics
     printf("MoE Cache Statistics:\n");
-    printf("  Total Requests: %lu\n", stats.total_requests);
-    printf("  Cache Hits: %lu (%.2f%%)\n",
+    printf("  Total Requests: %" PRIu64 "\n", stats.total_requests);
+    printf("  Cache Hits: %" PRIu64 " (%.2f%%)\n",
            stats.cache_hits, stats.hit_rate * 100.0);
-    printf("  Cache Misses: %lu\n", stats.cache_misses);
-    printf("  Evictions: %lu\n", stats.evictions);
-    printf("  Prefetches: %lu\n", stats.prefetches);
+    printf("  Cache Misses: %" PRIu64 "\n", stats.cache_misses);
+    printf("  Evictions: %" PRIu64 "\n", stats.evictions);
+    printf("  Prefetches: %" PRIu64 "\n", stats.prefetches);
     printf("  Prefetch Accuracy: %.2f%%\n",
            stats.prefetch_accuracy * 100.0);
     printf("  Current Cache Size: %.2f MB\n",
