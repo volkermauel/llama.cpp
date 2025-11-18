@@ -201,14 +201,14 @@ struct ggml_moe_cache_hip : public ggml_moe_cache {
 struct ggml_moe_cache_interface_hip : public ggml_moe_cache_interface {
     ggml_moe_cache* create_cache(
         ggml_backend_t backend,
-        const ggml_moe_cache_config& config,
+        const ggml_moe_cache_config* config,
         int num_experts
     ) override {
-        if (!ggml_backend_is_hip(backend)) {
+        if (!ggml_backend_is_hip(backend) || !config || num_experts <= 0) {
             return nullptr;
         }
         
-        return new ggml_moe_cache_hip(backend, config, num_experts, this);
+        return new ggml_moe_cache_hip(backend, *config, num_experts, this);
     }
     
     ggml_backend_buffer_t get_expert_async(

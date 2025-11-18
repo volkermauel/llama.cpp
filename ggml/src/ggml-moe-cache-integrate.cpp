@@ -6,6 +6,7 @@
 #include <vector>
 #include <algorithm>
 #include <cstring>
+#include <string>
 
 // Integration of MoE cache with existing ggml operations
 

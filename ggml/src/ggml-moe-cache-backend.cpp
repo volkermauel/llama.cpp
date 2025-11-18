@@ -24,6 +24,7 @@ extern "C" {
 #include <mutex>
 #include <chrono>
 #include <cstring>
+#include <string>
 
 // Unified backend implementation for all GPU backends
 // This file provides implementations for Vulkan, SYCL, Metal, and other GPU backends

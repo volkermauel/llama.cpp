@@ -204,16 +204,14 @@ struct ggml_moe_cache_cuda : public ggml_moe_cache {
 struct ggml_moe_cache_interface_cuda : public ggml_moe_cache_interface {
     ggml_moe_cache* create_cache(
         ggml_backend_t backend,
-        const ggml_moe_cache_config& config
+        const ggml_moe_cache_config* config,
+        int num_experts
     ) override {
-        if (!ggml_backend_is_cuda(backend)) {
+        if (!ggml_backend_is_cuda(backend) || !config || num_experts <= 0) {
             return nullptr;
         }
         
-        // Get number of experts from model (this should be passed in config)
-        int num_experts = 8;  // Default, should be configurable
-        
-        return new ggml_moe_cache_cuda(backend, config, num_experts, this);
+        return new ggml_moe_cache_cuda(backend, *config, num_experts, this);
     }
     
     ggml_backend_buffer_t get_expert_async(

@@ -2,6 +2,7 @@
 #include "ggml.h"
 #include <algorithm>
 #include <set>
+#include <cstring>
 
 // Pre-fetch engine implementation
 
@@ -145,7 +146,6 @@ void ggml_moe_prefetch_engine::init_cooccurrence(int num_experts) {
 }
 
 // C API implementation
-
 ggml_moe_cache* ggml_moe_cache_init(
     ggml_backend_t backend,
     const ggml_moe_cache_config* config,
@@ -162,7 +162,8 @@ ggml_moe_cache* ggml_moe_cache_init(
     }
     
     // Create cache using backend interface
-    return interface->create_cache(backend, *config, num_experts);
+    return interface->create_cache(backend, config, num_experts);
+}
 }
 
 void ggml_moe_cache_free(
