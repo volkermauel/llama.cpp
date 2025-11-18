@@ -1217,6 +1217,9 @@ struct llama_context_params common_context_params_to_llama(const common_params &
     cparams.type_k = params.cache_type_k;
     cparams.type_v = params.cache_type_v;
 
+    // Pass MoE cache parameters to the llama context
+    llama_context_params_set_moe_cache(&cparams, &params.moe_cache_params);
+
     return cparams;
 }
 
