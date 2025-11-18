@@ -3187,5 +3187,66 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
         }
     ).set_env("LLAMA_ARG_MOE_NO_MMAP"));
 
+    // MoE compression parameters
+    add_opt(common_arg(
+        {"--moe-compression"}, "TYPE",
+        "Enable lossless expert compression: none, fp16, lz4, sparse, auto (default: auto)",
+        [](common_params & params, const std::string & value) {
+            if (value == "none") {
+                params.moe_cache_params.compression_type = GGML_MOE_COMPRESSION_NONE;
+            } else if (value == "fp16") {
+                params.moe_cache_params.compression_type = GGML_MOE_COMPRESSION_FP16_PACK;
+            } else if (value == "lz4") {
+                params.moe_cache_params.compression_type = GGML_MOE_COMPRESSION_LZ4_FAST;
+            } else if (value == "sparse") {
+                params.moe_cache_params.compression_type = GGML_MOE_COMPRESSION_SPARSE_CSR;
+            } else if (value == "auto") {
+                params.moe_cache_params.compression_type = GGML_MOE_COMPRESSION_AUTO;
+            } else {
+                throw std::invalid_argument(string_format("Invalid compression type: %s", value.c_str()));
+            }
+        }
+    ).set_env("LLAMA_ARG_MOE_COMPRESSION"));
+    
+    add_opt(common_arg(
+        {"--moe-compression-threshold"}, "N",
+        "Minimum compression ratio to enable compression (default: 1.5)",
+        [](common_params & params, const std::string & value) {
+            params.moe_cache_params.compression_threshold = std::stof(value);
+        }
+    ).set_env("LLAMA_ARG_MOE_COMPRESSION_THRESHOLD"));
+    
+    add_opt(common_arg(
+        {"--moe-lz4-level"}, "N",
+        "LZ4 compression level 1-16 (default: 4)",
+        [](common_params & params, const std::string & value) {
+            params.moe_cache_params.lz4_compression_level = std::stoi(value);
+        }
+    ).set_env("LLAMA_ARG_MOE_LZ4_LEVEL"));
+    
+    add_opt(common_arg(
+        {"--moe-auto-compress"},
+        "Enable automatic compression type selection per expert",
+        [](common_params & params) {
+            params.moe_cache_params.enable_auto_selection = true;
+        }
+    ).set_env("LLAMA_ARG_MOE_AUTO_COMPRESS"));
+    
+    add_opt(common_arg(
+        {"--moe-fp16-pack"},
+        "Enable FP32→FP16 packing compression",
+        [](common_params & params) {
+            params.moe_cache_params.enable_fp16_packing = true;
+        }
+    ).set_env("LLAMA_ARG_MOE_FP16_PACK"));
+    
+    add_opt(common_arg(
+        {"--moe-sparse-threshold"}, "N",
+        "Sparsity threshold 0.0-1.0 for CSR compression (default: 0.5)",
+        [](common_params & params, const std::string & value) {
+            params.moe_cache_params.sparsity_threshold = std::stof(value);
+        }
+    ).set_env("LLAMA_ARG_MOE_SPARSE_THRESHOLD"));
+
     return ctx_arg;
 }

@@ -1,5 +1,6 @@
 #include "ggml-moe-cache.h"
 #include "ggml-moe-cache-lockfree.h"
+#include "ggml-moe-cache-compression.h"
 #include "ggml-backend.h"
 #include "ggml.h"
 #include <cstring>
@@ -25,6 +26,20 @@ struct ggml_moe_cache_concurrent : public ggml_moe_cache {
     // Expert source tensor for size calculations
     const ggml_tensor* expert_source;
     
+    // Compression interface
+    ggml_moe_compression_interface* compressor;
+    
+    // Per-expert compression metadata
+    struct expert_compression_info {
+        ggml_moe_compression_type type;
+        size_t compressed_size;
+        float compression_ratio;
+        bool is_compressed;
+        void* compressed_buffer;  // Temporary buffer for compressed data
+    };
+    
+    std::vector<expert_compression_info> compression_info;
+    
     // Statistics (extends base stats)
     struct {
         std::atomic<uint64_t> cache_hits;
@@ -34,6 +49,7 @@ struct ggml_moe_cache_concurrent : public ggml_moe_cache {
         std::atomic<uint64_t> failed_inserts;
         std::atomic<uint64_t> evictions;
         std::atomic<uint64_t> prefetches;
+        std::atomic<uint64_t> compressed_loads;  // Number of loads that used compression
         size_t current_size;
         size_t peak_size;
     } stats;
@@ -44,7 +60,7 @@ struct ggml_moe_cache_concurrent : public ggml_moe_cache {
         const ggml_moe_cache_config& config,
         int num_experts,
         ggml_moe_cache_interface* impl
-    ) : ggml_moe_cache(backend, config, num_experts, impl), expert_source(nullptr) {
+    ) : ggml_moe_cache(backend, config, num_experts, impl), expert_source(nullptr), compressor(nullptr) {
         // Initialize lock-free data structures
         cache_map.initialize(std::max(size_t(1024), size_t(num_experts * 2)));
         
@@ -52,6 +68,21 @@ struct ggml_moe_cache_concurrent : public ggml_moe_cache {
         const size_t num_buffers = 8;
         const size_t buffer_size = 64 * 1024 * 1024;  // 64MB
         buffer_pool.initialize(num_buffers, buffer_size);
+        
+        // Initialize compression interface if enabled
+        if (config.enable_compression && backend) {
+            compressor = ggml_moe_compression_get_interface(backend);
+        }
+        
+        // Initialize compression info
+        compression_info.resize(num_experts);
+        for (auto& info : compression_info) {
+            info.type = GGML_MOE_COMPRESSION_NONE;
+            info.compressed_size = 0;
+            info.compression_ratio = 1.0f;
+            info.is_compressed = false;
+            info.compressed_buffer = nullptr;
+        }
         
         // Initialize statistics
         stats.cache_hits.store(0, std::memory_order_relaxed);
@@ -61,6 +92,7 @@ struct ggml_moe_cache_concurrent : public ggml_moe_cache {
         stats.failed_inserts.store(0, std::memory_order_relaxed);
         stats.evictions.store(0, std::memory_order_relaxed);
         stats.prefetches.store(0, std::memory_order_relaxed);
+        stats.compressed_loads.store(0, std::memory_order_relaxed);
         stats.current_size = 0;
         stats.peak_size = 0;
     }
@@ -111,7 +143,7 @@ struct ggml_moe_cache_concurrent : public ggml_moe_cache {
         lru_list.reclaim_memory();
     }
     
-    // Load expert from CPU to GPU memory
+    // Load expert from CPU to GPU memory with optional compression
     ggml_backend_buffer_t load_expert_async(
         int expert_id,
         const ggml_tensor* expert_tensor,
@@ -144,32 +176,118 @@ struct ggml_moe_cache_concurrent : public ggml_moe_cache {
             return nullptr;
         }
         
+        // Check if compression is enabled and beneficial
+        bool use_compression = false;
+        size_t compressed_size = expert_size;
+        void* data_to_transfer = nullptr;
+        ggml_moe_compression_type compression_type = GGML_MOE_COMPRESSION_NONE;
+        
+        if (compressor && config.enable_compression) {
+            // Determine compression type
+            if (config.enable_auto_selection) {
+                compression_type = compressor->recommend_compression(expert_tensor, expert_id, &expert_stats[expert_id]);
+            } else {
+                compression_type = config.default_type;
+            }
+            
+            // Try to compress
+            if (compression_type != GGML_MOE_COMPRESSION_NONE) {
+                // Allocate temporary buffer for compression
+                void* compress_buffer = malloc(expert_size);  // Worst case size
+                
+                float ratio;
+                compressed_size = compressor->compress(
+                    expert_tensor->data + expert_offset,
+                    expert_size,
+                    compress_buffer,
+                    expert_size,
+                    compression_type,
+                    &ratio
+                );
+                
+                // Check if compression is beneficial
+                if (compressed_size > 0 && ratio >= config.compression_threshold) {
+                    use_compression = true;
+                    data_to_transfer = compress_buffer;
+                    compression_info[expert_id].type = compression_type;
+                    compression_info[expert_id].compressed_size = compressed_size;
+                    compression_info[expert_id].compression_ratio = ratio;
+                    compression_info[expert_id].is_compressed = true;
+                    compression_info[expert_id].compressed_buffer = compress_buffer;
+                } else {
+                    // Compression not beneficial, use original data
+                    free(compress_buffer);
+                    data_to_transfer = const_cast<void*>(expert_tensor->data + expert_offset);
+                    compression_type = GGML_MOE_COMPRESSION_NONE;
+                }
+            } else {
+                data_to_transfer = const_cast<void*>(expert_tensor->data + expert_offset);
+            }
+        } else {
+            data_to_transfer = const_cast<void*>(expert_tensor->data + expert_offset);
+        }
+        
         // Get pinned buffer for async transfer
+        size_t transfer_size = use_compression ? compressed_size : expert_size;
         size_t pinned_buffer_size;
         void* pinned_buffer = buffer_pool.acquire(pinned_buffer_size);
         
         if (!pinned_buffer) {
+            if (use_compression && compression_info[expert_id].compressed_buffer) {
+                free(compression_info[expert_id].compressed_buffer);
+                compression_info[expert_id].compressed_buffer = nullptr;
+            }
             ggml_backend_buffer_free(gpu_buffer);
             return nullptr;
         }
         
         // Ensure pinned buffer is large enough
-        if (pinned_buffer_size < expert_size) {
+        if (pinned_buffer_size < transfer_size) {
             buffer_pool.release(pinned_buffer);
+            if (use_compression && compression_info[expert_id].compressed_buffer) {
+                free(compression_info[expert_id].compressed_buffer);
+                compression_info[expert_id].compressed_buffer = nullptr;
+            }
             ggml_backend_buffer_free(gpu_buffer);
             return nullptr;
         }
         
-        // Copy expert data to pinned buffer first
-        const char* cpu_data = (const char*)expert_tensor->data + expert_offset;
-        memcpy(pinned_buffer, cpu_data, expert_size);
+        // Copy data to pinned buffer
+        memcpy(pinned_buffer, data_to_transfer, transfer_size);
         
-        // Copy from pinned buffer to GPU
-        char* gpu_data = (char*)ggml_backend_buffer_get_base(gpu_buffer);
-        memcpy(gpu_data, pinned_buffer, expert_size);  // Synchronous for now
+        // If compressed, decompress on GPU
+        if (use_compression) {
+            // First copy compressed data to GPU staging buffer
+            char* gpu_compressed = (char*)ggml_backend_buffer_get_base(gpu_buffer);
+            memcpy(gpu_compressed, pinned_buffer, compressed_size);
+            
+            // Then decompress to final location
+            char* gpu_decompressed = gpu_compressed;  // Decompress in-place
+            compressor->decompress_async(
+                gpu_compressed,
+                compressed_size,
+                gpu_decompressed,
+                expert_size,
+                compression_type,
+                compute_stream
+            );
+            
+            // Update statistics
+            stats.compressed_loads.fetch_add(1, std::memory_order_relaxed);
+        } else {
+            // Copy directly to GPU
+            char* gpu_data = (char*)ggml_backend_buffer_get_base(gpu_buffer);
+            memcpy(gpu_data, pinned_buffer, expert_size);
+        }
         
-        // Release pinned buffer back to pool
+        // Release pinned buffer
         buffer_pool.release(pinned_buffer);
+        
+        // Clean up compression buffer if used
+        if (use_compression && compression_info[expert_id].compressed_buffer) {
+            free(compression_info[expert_id].compressed_buffer);
+            compression_info[expert_id].compressed_buffer = nullptr;
+        }
         
         // Update cache statistics
         stats.current_size += expert_size;

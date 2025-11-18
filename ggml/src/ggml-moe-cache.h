@@ -13,6 +13,17 @@
 extern "C" {
 #endif
 
+// Compression types for lossless expert compression
+enum ggml_moe_compression_type {
+    GGML_MOE_COMPRESSION_NONE = 0,           // No compression (raw FP16/FP32)
+    GGML_MOE_COMPRESSION_FP16_PACK = 1,      // FP32→FP16 packing (if applicable)
+    GGML_MOE_COMPRESSION_LZ4_FAST = 2,       // LZ4 with low compression level
+    GGML_MOE_COMPRESSION_LZ4_HIGH = 3,       // LZ4 with high compression level
+    GGML_MOE_COMPRESSION_SPARSE_CSR = 4,     // CSR format for sparse experts
+    GGML_MOE_COMPRESSION_DELTA_PACK = 5,     // Delta from base expert
+    GGML_MOE_COMPRESSION_AUTO = 6,           // Automatically select based on expert
+};
+
 // Configuration for MoE cache
 struct ggml_moe_cache_config {
     size_t max_cache_size;           // Maximum GPU memory for cache (bytes)
@@ -21,6 +32,16 @@ struct ggml_moe_cache_config {
     int prefetch_depth;              // Number of experts to pre-fetch
     bool enable_stats;               // Enable statistics collection
     float eviction_threshold;        // Memory threshold to trigger eviction (0.0-1.0)
+    
+    // Compression settings
+    bool enable_compression;                    // Master switch for compression
+    ggml_moe_compression_type default_type;     // Default compression type
+    bool enable_auto_selection;                 // Auto-select per expert
+    float compression_threshold;                // Min ratio to enable (default: 1.5)
+    bool enable_fp16_packing;                   // Enable FP32→FP16 packing
+    int lz4_compression_level;                  // 1-16 (1=fast, 16=best)
+    bool enable_sparse_detection;               // Auto-detect sparse experts
+    float sparsity_threshold;                   // Min sparsity for CSR (default: 0.5)
 };
 
 // Statistics for cache monitoring
