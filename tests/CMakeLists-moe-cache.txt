@@ -1,0 +1,41 @@
+# Test for lock-free MoE cache
+set(TEST_TARGET test-ggml-moe-cache-lockfree)
+
+add_executable(${TEST_TARGET}
+    test-ggml-moe-cache-lockfree.cpp
+    ../ggml/src/ggml-moe-cache-concurrent.cpp
+)
+
+target_include_directories(${TEST_TARGET} PRIVATE
+    ../ggml/src
+    ../ggml/include
+    ../include
+)
+
+target_link_libraries(${TEST_TARGET} PRIVATE
+    ggml
+    Threads::Threads
+)
+
+# Set C++ standard
+set_target_properties(${TEST_TARGET} PROPERTIES
+    CXX_STANDARD 17
+    CXX_STANDARD_REQUIRED ON
+)
+
+# Add compile options for testing
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_options(${TEST_TARGET} PRIVATE
+        -g
+        -O0
+        -fsanitize=thread
+        -fsanitize=address
+    )
+    target_link_options(${TEST_TARGET} PRIVATE
+        -fsanitize=thread
+        -fsanitize=address
+    )
+endif()
+
+# Add test to CTest
+add_test(NAME ${TEST_TARGET} COMMAND ${TEST_TARGET})
