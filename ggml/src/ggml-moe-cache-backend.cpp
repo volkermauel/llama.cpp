@@ -584,6 +584,8 @@ static ggml_moe_cache_interface* ggml_moe_cache_get_interface_gpu_impl() {
 
 // Update backend detection to include generic GPU backend
 ggml_moe_cache_interface* ggml_moe_cache_get_interface(ggml_backend_t backend) {
+    // Mark backend as potentially unused if no MOE cache backends are enabled
+    (void)backend;
 #ifdef GGML_CUDA_MOE_CACHE
     if (ggml_backend_is_cuda(backend)) {
         return const_cast<ggml_moe_cache_interface*>(ggml_moe_cache_get_interface_cuda());
