@@ -1,10 +1,15 @@
 #include "ggml-moe-cache.h"
+#include "ggml-moe-cache-ml-prefetch.h"
 #include "ggml.h"
 #include <algorithm>
 #include <set>
 #include <cstring>
 
 // Pre-fetch engine implementation
+
+// Global ML prefetch engine (per-model)
+static std::unordered_map<ggml_moe_cache*, std::unique_ptr<ggml_moe_ml::ml_prefetch_engine>> g_ml_engines;
+static std::mutex g_ml_engines_mutex;
 
 std::vector<int> ggml_moe_prefetch_engine::predict_next_experts(
     const std::vector<int>& current_experts,
@@ -14,6 +19,10 @@ std::vector<int> ggml_moe_prefetch_engine::predict_next_experts(
     
     std::vector<int> predictions;
     std::set<int> seen_experts(current_experts.begin(), current_experts.end());
+    
+    // Check if ML prefetching is enabled for this cache
+    // This would need to be passed through the cache configuration
+    // For now, we'll use the heuristic approach as fallback
     
     // Method 1: Co-occurrence based prediction
     for (int expert : current_experts) {
@@ -58,6 +67,30 @@ std::vector<int> ggml_moe_prefetch_engine::predict_next_experts(
     }
     
     return predictions;
+}
+
+// ML-enhanced prediction (new function)
+std::vector<int> ggml_moe_prefetch_engine::predict_next_experts_ml(
+    const std::vector<int>& current_experts,
+    const std::vector<int>& recent_tokens,
+    int layer_id,
+    int position,
+    int top_k,
+    ggml_moe_ml::ml_prefetch_engine* ml_engine
+) {
+    if (!ml_engine || !ml_engine->is_ready()) {
+        // Fall back to heuristic prediction
+        return predict_next_experts(current_experts, top_k);
+    }
+    
+    // Use ML model for prediction
+    return ml_engine->predict_next_experts(
+        current_experts,
+        recent_tokens,
+        layer_id,
+        position,
+        top_k
+    );
 }
 
 void ggml_moe_prefetch_engine::update_patterns(

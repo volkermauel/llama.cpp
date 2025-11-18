@@ -42,6 +42,14 @@ struct ggml_moe_cache_config {
     int lz4_compression_level;                  // 1-16 (1=fast, 16=best)
     bool enable_sparse_detection;               // Auto-detect sparse experts
     float sparsity_threshold;                   // Min sparsity for CSR (default: 0.5)
+    
+    // ML prefetching settings
+    bool enable_ml_prefetch;                    // Enable ML-enhanced prefetching
+    std::string ml_model_cache_dir;             // Directory for ML model storage
+    float ml_learning_rate;                     // Learning rate for online training
+    bool ml_enable_persistence;                 // Save/load ML models
+    bool ml_reset_on_startup;                   // Reset ML model on startup
+    float ml_accuracy_threshold;                // Minimum accuracy to use ML predictions
 };
 
 // Statistics for cache monitoring

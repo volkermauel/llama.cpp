@@ -42,6 +42,14 @@ struct llama_moe_cache_params {
     bool enable_fp16_packing = false;
     float sparsity_threshold = 0.5f;
     
+    // ML prefetching settings
+    bool enable_ml_prefetch = false;
+    std::string ml_model_cache_dir;
+    float ml_learning_rate = 0.01f;
+    bool ml_enable_persistence = true;
+    bool ml_reset_on_startup = false;
+    float ml_accuracy_threshold = 0.7f;
+    
     // Parse from command line arguments
     static llama_moe_cache_params parse_from_args(int argc, char ** argv);
     

@@ -3251,5 +3251,60 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
         }
     ).set_env("LLAMA_ARG_MOE_SPARSE_THRESHOLD"));
 
+    // ML prefetching parameters
+    add_opt(common_arg(
+        {"--moe-ml-prefetch"}, "[on|off]",
+        "enable ML-enhanced expert prefetching (default: off)",
+        [](common_params & params, const std::string & value) {
+            if (is_truthy(value)) {
+                params.moe_cache_params.enable_ml_prefetch = true;
+            } else if (is_falsey(value)) {
+                params.moe_cache_params.enable_ml_prefetch = false;
+            } else {
+                throw std::invalid_argument(string_format("error: unknown value for --moe-ml-prefetch: '%s'\n", value.c_str()));
+            }
+        }
+    ).set_env("LLAMA_ARG_MOE_ML_PREFETCH"));
+    
+    add_opt(common_arg(
+        {"--moe-ml-model-dir"}, "DIR",
+        "directory for ML model cache (default: ~/.cache/llama.cpp/moe_ml/)",
+        [](common_params & params, const std::string & value) {
+            params.moe_cache_params.ml_model_cache_dir = value;
+        }
+    ).set_env("LLAMA_ARG_MOE_ML_MODEL_DIR"));
+    
+    add_opt(common_arg(
+        {"--moe-ml-learning-rate"}, "N",
+        "learning rate for ML model training (default: 0.01)",
+        [](common_params & params, const std::string & value) {
+            params.moe_cache_params.ml_learning_rate = std::stof(value);
+        }
+    ).set_env("LLAMA_ARG_MOE_ML_LEARNING_RATE"));
+    
+    add_opt(common_arg(
+        {"--moe-ml-no-persist"},
+        "disable ML model persistence (don't save/load models)",
+        [](common_params & params) {
+            params.moe_cache_params.ml_enable_persistence = false;
+        }
+    ).set_env("LLAMA_ARG_MOE_ML_NO_PERSIST"));
+    
+    add_opt(common_arg(
+        {"--moe-ml-reset"},
+        "reset ML model on startup (discard saved model)",
+        [](common_params & params) {
+            params.moe_cache_params.ml_reset_on_startup = true;
+        }
+    ).set_env("LLAMA_ARG_MOE_ML_RESET"));
+    
+    add_opt(common_arg(
+        {"--moe-ml-accuracy-threshold"}, "N",
+        "minimum ML accuracy to use predictions (default: 0.7)",
+        [](common_params & params, const std::string & value) {
+            params.moe_cache_params.ml_accuracy_threshold = std::stof(value);
+        }
+    ).set_env("LLAMA_ARG_MOE_ML_ACCURACY_THRESHOLD"));
+
     return ctx_arg;
 }
