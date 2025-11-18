@@ -199,6 +199,16 @@ struct ggml_moe_prefetch_engine {
         int top_k = 3
     );
     
+    // ML-enhanced prediction
+    std::vector<int> predict_next_experts_ml(
+        const std::vector<int>& current_experts,
+        const std::vector<int>& recent_tokens,
+        int layer_id,
+        int position,
+        int top_k,
+        struct ggml_moe_ml::ml_prefetch_engine* ml_engine
+    );
+    
     // Update patterns based on actual usage
     void update_patterns(
         const std::vector<int>& used_experts,

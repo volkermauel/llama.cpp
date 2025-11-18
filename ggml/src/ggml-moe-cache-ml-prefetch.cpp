@@ -1,7 +1,7 @@
 #include "ggml-moe-cache-ml-prefetch.h"
 #include "ggml-moe-cache.h"
 #include "ggml.h"
-#include "common.h"
+#include "common/common.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
