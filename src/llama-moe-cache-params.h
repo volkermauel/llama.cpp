@@ -1,6 +1,7 @@
 #pragma once
 
 #include "llama.h"
+#include "ggml-moe-cache.h"  // For ggml_moe_compression_type enum
 #include <cstdint>
 #include <string>
 
@@ -32,6 +33,14 @@ struct llama_moe_cache_params {
     
     // Override mmap setting for experts
     bool experts_no_mmap = false;
+    
+    // Compression settings
+    ggml_moe_compression_type compression_type = GGML_MOE_COMPRESSION_NONE;
+    float compression_threshold = 1.5f;
+    int32_t lz4_compression_level = 4;
+    bool enable_auto_selection = false;
+    bool enable_fp16_packing = false;
+    float sparsity_threshold = 0.5f;
     
     // Parse from command line arguments
     static llama_moe_cache_params parse_from_args(int argc, char ** argv);

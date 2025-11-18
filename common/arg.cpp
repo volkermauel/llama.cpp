@@ -7,6 +7,9 @@
 #include "sampling.h"
 #include "download.h"
 
+// Include MoE cache headers for compression enums
+#include "ggml-moe-cache.h"
+
 // fix problem with std::min and std::max
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
