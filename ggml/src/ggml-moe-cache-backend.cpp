@@ -20,7 +20,7 @@ extern "C" {
 }
 
 // Forward declaration for GPU interface function
-ggml_moe_cache_interface* ggml_moe_cache_get_interface_gpu();
+static ggml_moe_cache_interface* ggml_moe_cache_get_interface_gpu();
 
 #include <algorithm>
 #include <vector>
