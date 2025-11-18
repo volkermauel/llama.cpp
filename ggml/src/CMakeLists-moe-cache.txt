@@ -49,6 +49,11 @@ if (GGML_HIP)
     target_compile_definitions(ggml PRIVATE GGML_HIP_MOE_CACHE)
 endif()
 
+# GPU backend support flag
+if (GGML_CUDA OR GGML_HIP OR GGML_VULKAN OR GGML_SYCL OR GGML_METAL)
+    target_compile_definitions(ggml PRIVATE GGML_GPU_MOE_CACHE)
+endif()
+
 # C++ standard
 set_property(TARGET ggml PROPERTY CXX_STANDARD 14)
 set_property(TARGET ggml PROPERTY CXX_STANDARD_REQUIRED ON)
