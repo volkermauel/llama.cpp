@@ -36,6 +36,10 @@ target_include_directories(ggml PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/..
     ${CMAKE_CURRENT_SOURCE_DIR}/../include
+)
+
+# Add include directory for common headers (needed for common/common.h)
+target_include_directories(ggml PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/../../common
 )
 

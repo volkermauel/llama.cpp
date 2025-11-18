@@ -9,6 +9,11 @@
 #include <memory>
 #include <chrono>
 
+// Forward declaration for ML prefetching
+namespace ggml_moe_ml {
+    struct ml_prefetch_engine;
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif

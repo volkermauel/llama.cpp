@@ -76,7 +76,7 @@ std::vector<int> ggml_moe_prefetch_engine::predict_next_experts_ml(
     int layer_id,
     int position,
     int top_k,
-    ggml_moe_ml::ml_prefetch_engine* ml_engine
+    struct ggml_moe_ml::ml_prefetch_engine* ml_engine
 ) {
     if (!ml_engine || !ml_engine->is_ready()) {
         // Fall back to heuristic prediction
