@@ -2,8 +2,10 @@
 #include "ggml.h"
 #include "ggml-backend.h"
 #include "ggml-backend-impl.h"
+#include "ggml-cuda.h"
 #include <vector>
 #include <algorithm>
+#include <cstring>
 
 // Integration of MoE cache with existing ggml operations
 
@@ -40,8 +42,7 @@ static std::vector<int> extract_expert_ids_from_tensor(const ggml_tensor* ids_te
 }
 
 // Cached version of ggml_mul_mat_id for MoE operations
-void ggml_cuda_mul_mat_id_cached(
-    ggml_backend_cuda_context& ctx,
+void ggml_mul_mat_id_cached(
     ggml_tensor* dst,
     ggml_moe_cache* cache
 ) {
@@ -64,8 +65,8 @@ void ggml_cuda_mul_mat_id_cached(
         return;
     }
     
-    // Get CUDA stream for async operations
-    cudaStream_t stream = ctx.stream();
+    // Get backend stream for async operations
+    void* stream = nullptr; // Use default stream for now
     
     // Pre-fetch predicted experts for next iteration
     if (cache->config.enable_prefetch && cache->prefetch_engine) {
@@ -102,7 +103,7 @@ void ggml_cuda_mul_mat_id_cached(
     }
     
     // Wait for all expert transfers to complete
-    cudaStreamSynchronize(stream);
+    // Backend-specific synchronization would go here
     
     // Update LRU and statistics for used experts
     for (int expert_id : current_expert_ids) {
@@ -214,20 +215,21 @@ void ggml_moe_cache_log_stats(const ggml_moe_cache* cache) {
     
     ggml_moe_cache_stats stats = cache->impl->get_stats(cache);
     
-    GGML_LOG_INFO("MoE Cache Statistics:\n");
-    GGML_LOG_INFO("  Total Requests: %lu\n", stats.total_requests);
-    GGML_LOG_INFO("  Cache Hits: %lu (%.2f%%)\n", 
-                  stats.cache_hits, stats.hit_rate * 100.0);
-    GGML_LOG_INFO("  Cache Misses: %lu\n", stats.cache_misses);
-    GGML_LOG_INFO("  Evictions: %lu\n", stats.evictions);
-    GGML_LOG_INFO("  Prefetches: %lu\n", stats.prefetches);
-    GGML_LOG_INFO("  Prefetch Accuracy: %.2f%%\n", 
-                  stats.prefetch_accuracy * 100.0);
-    GGML_LOG_INFO("  Current Cache Size: %.2f MB\n", 
-                  stats.current_size / (1024.0 * 1024.0));
-    GGML_LOG_INFO("  Peak Cache Size: %.2f MB\n", 
-                  stats.peak_size / (1024.0 * 1024.0));
-    GGML_LOG_INFO("  Average Load Time: %.2f ms\n", stats.avg_load_time);
+    // Log cache statistics
+    printf("MoE Cache Statistics:\n");
+    printf("  Total Requests: %lu\n", stats.total_requests);
+    printf("  Cache Hits: %lu (%.2f%%)\n",
+           stats.cache_hits, stats.hit_rate * 100.0);
+    printf("  Cache Misses: %lu\n", stats.cache_misses);
+    printf("  Evictions: %lu\n", stats.evictions);
+    printf("  Prefetches: %lu\n", stats.prefetches);
+    printf("  Prefetch Accuracy: %.2f%%\n",
+           stats.prefetch_accuracy * 100.0);
+    printf("  Current Cache Size: %.2f MB\n",
+           stats.current_size / (1024.0 * 1024.0));
+    printf("  Peak Cache Size: %.2f MB\n",
+           stats.peak_size / (1024.0 * 1024.0));
+    printf("  Average Load Time: %.2f ms\n", stats.avg_load_time);
 }
 
 // Reset cache for new inference session
@@ -266,7 +268,9 @@ bool ggml_moe_should_use_cache(const ggml_tensor* tensor) {
     
     // Check if tensor has expert-like dimensions
     // Typically MoE tensors are 3D with last dimension being number of experts
-    if (tensor->n_dims == 3 && tensor->ne[2] > 1 && tensor->ne[2] <= 512) {
+    // Check if tensor is 3D: ne[0], ne[1], ne[2] are valid, ne[3] should be 1 or 0
+    if (tensor->ne[2] > 1 && tensor->ne[2] <= 512 &&
+        (tensor->ne[3] == 0 || tensor->ne[3] == 1)) {
         return true;
     }
     

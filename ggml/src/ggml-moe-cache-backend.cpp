@@ -162,14 +162,30 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
             pinned_buffer_pool.push(buffer);
         }
     }
-    
     // Calculate expert size in bytes
     size_t get_expert_size(const ggml_tensor* expert_tensor, int expert_id) {
         size_t expert_bytes = ggml_nbytes(expert_tensor) / expert_tensor->ne[2];
         return expert_bytes;
     }
     
-    // Evict experts to make room for new ones
+    // Calculate priority score combining recency and frequency
+    double calculate_priority(int expert_id) {
+        auto& stats = expert_stats[expert_id];
+        auto time_since_access = std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::steady_clock::now() - stats.last_access_time).count();
+        
+        // Combine frequency and recency (lower score = better candidate for eviction)
+        // Add small epsilon to avoid division by zero
+        double freq_factor = stats.access_frequency + 0.01;
+        double time_factor = time_since_access + 1.0; // +1 to avoid zero
+        
+        // Priority score: time since access divided by access frequency
+        // Experts accessed frequently get lower scores (kept longer)
+        // Experts not accessed recently get higher scores (evicted sooner)
+        return time_factor / freq_factor;
+    }
+    
+    // Evict experts to make room for new ones (Frequency-Enhanced LRU)
     void evict_experts(size_t required_space) {
         std::lock_guard<std::mutex> lock(cache_mutex);
         
@@ -181,15 +197,30 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
         size_t space_to_free = required_space - available_space;
         size_t freed_space = 0;
         
-        // Evict from LRU list until we have enough space
-        while (!lru_list.empty() && freed_space < space_to_free) {
-            int expert_id = lru_list.back();
-            
-            // Skip if expert is currently being used
-            if (expert_stats[expert_id].access_count > 0 && 
+        // Build list of eviction candidates with priority scores
+        std::vector<std::pair<int, double>> eviction_candidates;
+        for (int expert_id : lru_list) {
+            // Skip if expert is currently being used (accessed within last 100ms)
+            if (expert_stats[expert_id].access_count > 0 &&
                 expert_stats[expert_id].last_access_time > std::chrono::steady_clock::now() - std::chrono::milliseconds(100)) {
-                lru_list.pop_back();
                 continue;
+            }
+            
+            // Calculate priority score for this expert
+            double priority = calculate_priority(expert_id);
+            eviction_candidates.push_back({expert_id, priority});
+        }
+        
+        // Sort by priority score (higher score = better eviction candidate)
+        std::sort(eviction_candidates.begin(), eviction_candidates.end(),
+            [](const auto& a, const auto& b) {
+                return a.second > b.second; // Higher priority first
+            });
+        
+        // Evict experts based on priority until we have enough space
+        for (const auto& [expert_id, priority] : eviction_candidates) {
+            if (freed_space >= space_to_free) {
+                break; // Enough space freed
             }
             
             // Find and free the expert buffer
@@ -211,9 +242,13 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
                 // Remove from cache map and LRU list
                 cache_map.erase(it);
                 lru_iter.erase(expert_id);
+                
+                // Remove from LRU list
+                auto lru_it = std::find(lru_list.begin(), lru_list.end(), expert_id);
+                if (lru_it != lru_list.end()) {
+                    lru_list.erase(lru_it);
+                }
             }
-            
-            lru_list.pop_back();
         }
     }
     
@@ -308,10 +343,27 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
         
         std::lock_guard<std::mutex> lock(cache->cache_mutex);
         
+        // Get current time for statistics
+        auto now = std::chrono::steady_clock::now();
+        
         // Update statistics
         cache->stats.total_requests++;
         cache->expert_stats[expert_id].access_count++;
-        cache->expert_stats[expert_id].last_access_time = std::chrono::steady_clock::now();
+        cache->expert_stats[expert_id].last_access_time = now;
+        
+        // Update access frequency (exponential moving average)
+        auto& expert_stat = cache->expert_stats[expert_id];
+        double time_delta = std::chrono::duration_cast<std::chrono::seconds>(
+            now - expert_stat.last_access_time).count();
+        
+        if (time_delta > 0) {
+            // Update frequency: accesses per second (exponential decay)
+            double alpha = 0.1; // Smoothing factor
+            double current_freq = 1.0 / time_delta;
+            expert_stat.access_frequency = (1.0 - alpha) * expert_stat.access_frequency + alpha * current_freq;
+        } else {
+            expert_stat.access_frequency += 1.0; // Multiple accesses in same second
+        }
         
         // Check if expert is already cached
         auto it = cache->cache_map.find(expert_id);
@@ -399,6 +451,18 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
         auto& stats = cache->expert_stats[expert_id];
         stats.access_count++;
         stats.last_access_time = now;
+        
+        // Update access frequency (exponential moving average)
+        double time_delta = std::chrono::duration_cast<std::chrono::seconds>(
+            now - stats.last_access_time).count();
+        
+        if (time_delta > 0) {
+            double alpha = 0.1; // Smoothing factor
+            double current_freq = 1.0 / time_delta;
+            stats.access_frequency = (1.0 - alpha) * stats.access_frequency + alpha * current_freq;
+        } else {
+            stats.access_frequency += 1.0;
+        }
         
         // Update LRU if expert is cached
         auto it = cache->lru_iter.find(expert_id);
