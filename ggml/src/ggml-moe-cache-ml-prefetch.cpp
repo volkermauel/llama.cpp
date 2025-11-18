@@ -789,9 +789,8 @@ float ml_prefetch_engine::get_prediction_confidence() const {
     return stats_.current_accuracy.load();
 }
 
-ml_prefetch_stats ml_prefetch_engine::get_stats() const {
-    // Create stats object and manually copy each atomic value
-    ml_prefetch_stats stats;
+void ml_prefetch_engine::get_stats(ml_prefetch_stats& stats) const {
+    // Manually copy each atomic value to the output parameter
     stats.total_predictions = stats_.total_predictions.load();
     stats.correct_predictions = stats_.correct_predictions.load();
     stats.training_samples = stats_.training_samples.load();
@@ -801,7 +800,6 @@ ml_prefetch_stats ml_prefetch_engine::get_stats() const {
     stats.current_accuracy = stats_.current_accuracy.load();
     stats.average_prediction_time_ms = stats_.average_prediction_time_ms.load();
     stats.average_learning_time_ms = stats_.average_learning_time_ms.load();
-    return stats;
 }
 
 bool ml_prefetch_engine::save_model() {
@@ -1088,8 +1086,8 @@ void ggml_moe_ml_prefetch_get_stats(
     if (!engine || !stats) return;
     auto* ml_engine = static_cast<ggml_moe_ml::ml_prefetch_engine*>(engine);
     
-    // Get stats from engine (already returns non-atomic values)
-    *stats = ml_engine->get_stats();
+    // Get stats from engine (fills the provided stats object)
+    ml_engine->get_stats(*stats);
 }
 
 void ggml_moe_ml_prefetch_reset(void* engine) {

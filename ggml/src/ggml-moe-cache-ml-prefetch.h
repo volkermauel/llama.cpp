@@ -107,7 +107,7 @@ public:
     float get_prediction_confidence() const;
     
     // Get statistics
-    ml_prefetch_stats get_stats() const;
+    void get_stats(ml_prefetch_stats& stats) const;
     
     // Save model to disk
     bool save_model();
