@@ -541,48 +541,63 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
         ggml_moe_cache* cache
     ) override {
         if (!cache) return;
-        // Forward declaration for the GPU interface function
-        static ggml_moe_cache_interface* ggml_moe_cache_get_interface_gpu_impl();
         
-        // Get generic GPU cache interface
-        ggml_moe_cache_interface* ggml_moe_cache_get_interface_gpu() {
-            return ggml_moe_cache_get_interface_gpu_impl();
+        // Free all cached buffers
+        for (auto& [expert_id, buffer] : cache->cache_map) {
+            if (buffer) {
+                ggml_backend_buffer_free(buffer);
+            }
+            cache->expert_stats[expert_id].is_cached = false;
         }
         
-        // Implementation
-        static ggml_moe_cache_interface* ggml_moe_cache_get_interface_gpu_impl() {
-        #ifdef GGML_GPU_MOE_CACHE
-            static ggml_moe_cache_interface_gpu interface;
-            return &interface;
-        #else
-            return nullptr;
-        #endif
-        }
+        cache->cache_map.clear();
+        cache->lru_list.clear();
+        cache->lru_iter.clear();
+        cache->stats.current_size = 0;
         
-        // Update backend detection to include generic GPU backend
-        ggml_moe_cache_interface* ggml_moe_cache_get_interface(ggml_backend_t backend) {
-            if (ggml_backend_is_cuda(backend)) {
-                return const_cast<ggml_moe_cache_interface*>(ggml_moe_cache_get_interface_cuda());
-            }
-            if (ggml_backend_is_hip(backend)) {
-                return const_cast<ggml_moe_cache_interface*>(ggml_moe_cache_get_interface_hip());
-            }
-            
-        #ifdef GGML_GPU_MOE_CACHE
-            // Check if this is a GPU backend (Vulkan, SYCL, Metal, etc.)
-            ggml_backend_dev_t device = ggml_backend_get_device(backend);
-            if (device) {
-                enum ggml_backend_dev_type dev_type = ggml_backend_dev_type(device);
-                if (dev_type == GGML_BACKEND_DEVICE_TYPE_GPU ||
-                    dev_type == GGML_BACKEND_DEVICE_TYPE_IGPU) {
-                    return ggml_moe_cache_get_interface_gpu();
-                }
-            }
-        #endif
-            
-            return nullptr;
+        // Delete the cache object
+        delete cache;
+    }
+};
+
+// Forward declaration for the GPU interface function implementation
+static ggml_moe_cache_interface* ggml_moe_cache_get_interface_gpu_impl();
+
+// Get generic GPU cache interface
+static ggml_moe_cache_interface* ggml_moe_cache_get_interface_gpu() {
+    return ggml_moe_cache_get_interface_gpu_impl();
+}
+
+// Implementation of GPU interface function
+static ggml_moe_cache_interface* ggml_moe_cache_get_interface_gpu_impl() {
+#ifdef GGML_GPU_MOE_CACHE
+    static ggml_moe_cache_interface_gpu interface;
+    return &interface;
+#else
+    return nullptr;
+#endif
+}
+
+// Update backend detection to include generic GPU backend
+ggml_moe_cache_interface* ggml_moe_cache_get_interface(ggml_backend_t backend) {
+    if (ggml_backend_is_cuda(backend)) {
+        return const_cast<ggml_moe_cache_interface*>(ggml_moe_cache_get_interface_cuda());
+    }
+    if (ggml_backend_is_hip(backend)) {
+        return const_cast<ggml_moe_cache_interface*>(ggml_moe_cache_get_interface_hip());
+    }
+    
+#ifdef GGML_GPU_MOE_CACHE
+    // Check if this is a GPU backend (Vulkan, SYCL, Metal, etc.)
+    ggml_backend_dev_t device = ggml_backend_get_device(backend);
+    if (device) {
+        enum ggml_backend_dev_type dev_type = ggml_backend_dev_type(device);
+        if (dev_type == GGML_BACKEND_DEVICE_TYPE_GPU ||
+            dev_type == GGML_BACKEND_DEVICE_TYPE_IGPU) {
+            return ggml_moe_cache_get_interface_gpu();
         }
     }
+#endif
     
     return nullptr;
 }
