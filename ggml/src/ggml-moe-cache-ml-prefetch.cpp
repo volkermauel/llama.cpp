@@ -389,6 +389,8 @@ bool persistence_manager::save_model(
     const ml_prefetch_stats& stats,
     const ml_prefetch_config& config
 ) {
+    // Suppress unused parameter warning
+    (void)analyzer;
     std::ofstream file(filepath, std::ios::binary);
     if (!file) {
         return false;
@@ -441,6 +443,8 @@ bool persistence_manager::load_model(
     ml_prefetch_stats& stats,
     ml_prefetch_config& config
 ) {
+    // Suppress unused parameter warning
+    (void)analyzer;
     std::ifstream file(filepath, std::ios::binary);
     if (!file) {
         return false;
@@ -794,6 +798,7 @@ float ml_prefetch_engine::get_prediction_confidence() const {
 }
 
 ml_prefetch_stats ml_prefetch_engine::get_stats() const {
+    // Create stats object and manually copy each atomic value
     ml_prefetch_stats stats;
     stats.total_predictions = stats_.total_predictions.load();
     stats.correct_predictions = stats_.correct_predictions.load();
@@ -895,6 +900,9 @@ void ml_prefetch_engine::update_statistics(
     const std::vector<int>& predicted,
     const std::vector<int>& actual
 ) {
+    // Suppress unused parameter warnings
+    (void)predicted;
+    (void)actual;
     // This is called from update_with_actual, so we don't need to do much here
     // Statistics are updated in the main update method
 }
@@ -1079,6 +1087,8 @@ void ggml_moe_ml_prefetch_get_stats(
 ) {
     if (!engine || !stats) return;
     auto* ml_engine = static_cast<ggml_moe_ml::ml_prefetch_engine*>(engine);
+    
+    // Get stats from engine and manually copy each atomic value
     ml_prefetch_stats engine_stats = ml_engine->get_stats();
     
     // Manually copy each atomic member
