@@ -1,9 +1,12 @@
 #pragma once
 
-#include "llama.h"
-#include "ggml-moe-cache.h"  // For ggml_moe_compression_type enum
+#include "../ggml/src/ggml-moe-cache.h"  // For ggml_moe_compression_type enum
 #include <cstdint>
 #include <string>
+
+// Forward declarations to avoid circular dependency
+struct llama_context_params;
+#define LLAMA_API  // Temporary definition to avoid dependency issues
 
 // MoE cache parameters for command-line configuration
 struct llama_moe_cache_params {
@@ -60,12 +63,11 @@ struct llama_moe_cache_params {
     std::string to_string() const;
 };
 
-// Add MoE cache parameters to existing llama_context_params
-struct llama_context_params_moe : public llama_context_params {
-    llama_moe_cache_params moe_cache_params;
-};
+// Note: The inheritance from llama_context_params is removed to avoid circular dependency
+// Users should manually include both llama.h and this header, then use the setter function
+// to configure MoE cache parameters in their llama_context_params.
 
-// C API extensions
-LLAMA_API struct llama_context_params llama_context_default_params_with_moe(void);
-LLAMA_API void llama_context_params_set_moe_cache(struct llama_context_params* params,
-                                                 const llama_moe_cache_params* moe_params);
+// C API extensions - these will be properly defined when llama.h is included
+struct llama_context_params llama_context_default_params_with_moe(void);
+void llama_context_params_set_moe_cache(struct llama_context_params* params,
+                                       const struct llama_moe_cache_params* moe_params);
