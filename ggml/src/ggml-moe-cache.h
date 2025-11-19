@@ -11,7 +11,7 @@
 
 // Forward declaration for ML prefetching
 namespace ggml_moe_ml {
-    class ml_prefetch_engine;
+    struct ml_prefetch_engine;
 }
 
 #ifdef __cplusplus
