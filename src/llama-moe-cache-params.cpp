@@ -4,13 +4,13 @@
 
 // Implementation of the C API extensions for MoE cache parameters
 
-GGML_API struct llama_context_params llama_context_default_params_with_moe(void) {
+LLAMA_API struct llama_context_params llama_context_default_params_with_moe(void) {
     // Start with default parameters
     struct llama_context_params params = llama_context_default_params();
     return params;
 }
 
-GGML_API void llama_context_params_set_moe_cache(struct llama_context_params* params, 
+LLAMA_API void llama_context_params_set_moe_cache(struct llama_context_params* params,
                                                  const llama_moe_cache_params* moe_params) {
     if (!params || !moe_params) {
         return;  // Handle null pointers gracefully

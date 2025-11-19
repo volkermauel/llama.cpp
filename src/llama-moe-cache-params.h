@@ -66,6 +66,6 @@ struct llama_context_params_moe : public llama_context_params {
 };
 
 // C API extensions
-GGML_API struct llama_context_params llama_context_default_params_with_moe(void);
-GGML_API void llama_context_params_set_moe_cache(struct llama_context_params* params, 
+LLAMA_API struct llama_context_params llama_context_default_params_with_moe(void);
+LLAMA_API void llama_context_params_set_moe_cache(struct llama_context_params* params,
                                                  const llama_moe_cache_params* moe_params);
