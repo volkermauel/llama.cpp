@@ -54,13 +54,15 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
     const ggml_tensor* expert_source;
     
     // Constructor
+    // Constructor
     ggml_moe_cache_gpu(
         ggml_backend_t backend,
         const ggml_moe_cache_config& config,
-        int num_experts,
+        int num_layers,
+        int num_experts_per_layer,
         ggml_moe_cache_interface* impl,
         void* stream
-    ) : ggml_moe_cache(backend, config, num_experts, impl), compute_stream(stream), expert_source(nullptr) {
+    ) : ggml_moe_cache(backend, config, num_layers, num_experts_per_layer, impl), compute_stream(stream), expert_source(nullptr) {
         // Get GPU buffer type for this backend
         gpu_buft = ggml_backend_get_default_buffer_type(backend);
         
@@ -90,7 +92,6 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
             }
         }
     }
-    
     // Destructor
     ~ggml_moe_cache_gpu() {
         // Free pinned buffers
@@ -170,17 +171,98 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
             // Return to pool
             pinned_buffer_pool.push(buffer);
         }
-    }
     // Calculate expert size in bytes
-    size_t get_expert_size(const ggml_tensor* expert_tensor, int expert_id) {
-        (void)expert_id; // Mark as unused
+    size_t get_expert_size(const ggml_tensor* expert_tensor, int layer_id, int expert_id) {
+        (void)layer_id; // Mark as unused for now
+        (void)expert_id; // Mark as unused for now
         size_t expert_bytes = ggml_nbytes(expert_tensor) / expert_tensor->ne[2];
         return expert_bytes;
     }
     
+    // Layer-aware prefetch engine implementation
+    std::vector<std::pair<int, int>> predict_next_experts(
+        int layer_id,
+        const std::vector<int>& current_experts,
+        int top_k
+    ) {
+        std::vector<std::pair<int, int>> predictions;
+        
+        // Simple implementation: predict same experts in next layer
+        // In a real implementation, this would use historical patterns
+        for (int expert_id : current_experts) {
+            if (predictions.size() >= top_k) break;
+            // Predict same expert in next layer (if exists)
+            if (layer_id + 1 < num_layers) {
+                predictions.push_back({layer_id + 1, expert_id});
+            }
+        }
+        
+        return predictions;
+    }
+    
+    void update_patterns(
+        int layer_id,
+        const std::vector<int>& used_experts,
+        const std::vector<int>& tokens
+    ) {
+        // Update recent experts for this layer
+        update_recent_experts(layer_id, used_experts);
+        
+        // Update co-occurrence matrix for this layer
+        auto& cooccurrence = expert_cooccurrence_per_layer[layer_id];
+        for (size_t i = 0; i < used_experts.size(); ++i) {
+            for (size_t j = i + 1; j < used_experts.size(); ++j) {
+                int expert_i = used_experts[i];
+                int expert_j = used_experts[j];
+                if (expert_i < cooccurrence.size() && expert_j < cooccurrence.size()) {
+                    cooccurrence[expert_i][expert_j]++;
+                    cooccurrence[expert_j][expert_i]++;
+                }
+            }
+        }
+    }
+    
+    std::vector<std::pair<int, int>> predict_locality(
+        int layer_id,
+        const std::vector<int>& recent_experts
+    ) {
+        std::vector<std::pair<int, int>> predictions;
+        
+        // Simple locality-based prediction: predict recently used experts
+        for (int expert_id : recent_experts) {
+            predictions.push_back({layer_id, expert_id});
+        }
+        
+        return predictions;
+    }
+    
+    void update_recent_experts(int layer_id, const std::vector<int>& experts) {
+        auto& recent_experts = recent_experts_per_layer[layer_id];
+        
+        for (int expert_id : experts) {
+            // Add to recent list, remove duplicates
+            auto it = std::find(recent_experts.begin(), recent_experts.end(), expert_id);
+            if (it != recent_experts.end()) {
+                recent_experts.erase(it);
+            }
+            recent_experts.push_back(expert_id);
+            
+            // Keep only recent entries
+            if (recent_experts.size() > RECENT_SIZE) {
+                recent_experts.erase(recent_experts.begin());
+            }
+        }
+    }
+    
+    void init_cooccurrence(int layer_id, int num_experts) {
+        expert_cooccurrence_per_layer[layer_id] =
+            std::vector<std::vector<int>>(num_experts, std::vector<int>(num_experts, 0));
+    }
+    }
+    
     // Calculate priority score combining recency and frequency
-    double calculate_priority(int expert_id) {
-        auto& stats = expert_stats[expert_id];
+    double calculate_priority(const ggml_moe_expert_key& key) {
+        auto& stats = expert_stats[key];
         auto time_since_access = std::chrono::duration_cast<std::chrono::seconds>(
             std::chrono::steady_clock::now() - stats.last_access_time).count();
         
@@ -208,17 +290,17 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
         size_t freed_space = 0;
         
         // Build list of eviction candidates with priority scores
-        std::vector<std::pair<int, double>> eviction_candidates;
-        for (int expert_id : lru_list) {
+        std::vector<std::pair<ggml_moe_expert_key, double>> eviction_candidates;
+        for (const auto& key : lru_list) {
             // Skip if expert is currently being used (accessed within last 100ms)
-            if (expert_stats[expert_id].access_count > 0 &&
-                expert_stats[expert_id].last_access_time > std::chrono::steady_clock::now() - std::chrono::milliseconds(100)) {
+            if (expert_stats[key].access_count > 0 &&
+                expert_stats[key].last_access_time > std::chrono::steady_clock::now() - std::chrono::milliseconds(100)) {
                 continue;
             }
             
             // Calculate priority score for this expert
-            double priority = calculate_priority(expert_id);
-            eviction_candidates.push_back({expert_id, priority});
+            double priority = calculate_priority(key);
+            eviction_candidates.push_back({key, priority});
         }
         
         // Sort by priority score (higher score = better eviction candidate)
@@ -228,15 +310,15 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
             });
         
         // Evict experts based on priority until we have enough space
-        for (const auto& [expert_id, priority] : eviction_candidates) {
+        for (const auto& [key, priority] : eviction_candidates) {
             if (freed_space >= space_to_free) {
                 break; // Enough space freed
             }
             
             // Find and free the expert buffer
-            auto it = cache_map.find(expert_id);
+            auto it = cache_map.find(key);
             if (it != cache_map.end()) {
-                size_t expert_size = get_expert_size(expert_source, expert_id);
+                size_t expert_size = get_expert_size(expert_source, key.layer_id, key.expert_id);
                 
                 // Free the GPU buffer
                 ggml_backend_buffer_free(it->second);
@@ -247,14 +329,14 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
                 stats.evictions++;
                 
                 // Update expert status
-                expert_stats[expert_id].is_cached = false;
+                expert_stats[key].is_cached = false;
                 
                 // Remove from cache map and LRU list
                 cache_map.erase(it);
-                lru_iter.erase(expert_id);
+                lru_iter.erase(key);
                 
                 // Remove from LRU list
-                auto lru_it = std::find(lru_list.begin(), lru_list.end(), expert_id);
+                auto lru_it = std::find(lru_list.begin(), lru_list.end(), key);
                 if (lru_it != lru_list.end()) {
                     lru_list.erase(lru_it);
                 }
@@ -264,13 +346,14 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
     
     // Load expert from CPU to GPU memory
     ggml_backend_buffer_t load_expert_async(
+        int layer_id,
         int expert_id,
         const ggml_tensor* expert_tensor,
         void* compute_stream
     ) {
         (void)compute_stream; // Mark as unused
         // Calculate expert size and offset
-        size_t expert_size = get_expert_size(expert_tensor, expert_id);
+        size_t expert_size = get_expert_size(expert_tensor, layer_id, expert_id);
         size_t expert_offset = expert_id * expert_size;
         
         // Evict experts if necessary
@@ -323,7 +406,8 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
     ggml_moe_cache* create_cache(
         ggml_backend_t backend,
         const ggml_moe_cache_config* config,
-        int num_experts
+        int num_layers,
+        int num_experts_per_layer
     ) override {
         if (!config) return nullptr;
         // Check if this is a GPU backend
@@ -331,17 +415,18 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
         if (!device) return nullptr;
         
         enum ggml_backend_dev_type dev_type = ggml_backend_dev_type(device);
-        if (dev_type != GGML_BACKEND_DEVICE_TYPE_GPU && 
+        if (dev_type != GGML_BACKEND_DEVICE_TYPE_GPU &&
             dev_type != GGML_BACKEND_DEVICE_TYPE_IGPU) {
             return nullptr;
         }
         
         // Create cache with null stream (will use default)
-        return new ggml_moe_cache_gpu(backend, *config, num_experts, this, nullptr);
+        return new ggml_moe_cache_gpu(backend, *config, num_layers, num_experts_per_layer, this, nullptr);
     }
     
     ggml_backend_buffer_t get_expert_async(
         ggml_moe_cache* cache,
+        int layer_id,
         int expert_id,
         const ggml_tensor* expert_tensor,
         void* stream
@@ -354,16 +439,19 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
         
         std::lock_guard<std::mutex> lock(cache->cache_mutex);
         
+        // Create composite key
+        ggml_moe_expert_key key{layer_id, expert_id};
+        
         // Get current time for statistics
         auto now = std::chrono::steady_clock::now();
         
         // Update statistics
         cache->stats.total_requests++;
-        cache->expert_stats[expert_id].access_count++;
-        cache->expert_stats[expert_id].last_access_time = now;
+        auto& expert_stat = cache->expert_stats[key];
+        expert_stat.access_count++;
+        expert_stat.last_access_time = now;
         
         // Update access frequency (exponential moving average)
-        auto& expert_stat = cache->expert_stats[expert_id];
         double time_delta = std::chrono::duration_cast<std::chrono::seconds>(
             now - expert_stat.last_access_time).count();
         
@@ -377,16 +465,16 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
         }
         
         // Check if expert is already cached
-        auto it = cache->cache_map.find(expert_id);
+        auto it = cache->cache_map.find(key);
         if (it != cache->cache_map.end()) {
             // Cache hit
             cache->stats.cache_hits++;
             
             // Update LRU: move to front
-            auto lru_it = cache->lru_iter[expert_id];
+            auto lru_it = cache->lru_iter[key];
             cache->lru_list.erase(lru_it);
-            cache->lru_list.push_front(expert_id);
-            cache->lru_iter[expert_id] = cache->lru_list.begin();
+            cache->lru_list.push_front(key);
+            cache->lru_iter[key] = cache->lru_list.begin();
             
             return it->second;
         }
@@ -396,6 +484,7 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
         
         // Load expert asynchronously
         ggml_backend_buffer_t gpu_buffer = gpu_cache->load_expert_async(
+            layer_id,
             expert_id,
             expert_tensor,
             stream
@@ -403,10 +492,10 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
         
         if (gpu_buffer) {
             // Add to cache
-            cache->cache_map[expert_id] = gpu_buffer;
-            cache->lru_list.push_front(expert_id);
-            cache->lru_iter[expert_id] = cache->lru_list.begin();
-            cache->expert_stats[expert_id].is_cached = true;
+            cache->cache_map[key] = gpu_buffer;
+            cache->lru_list.push_front(key);
+            cache->lru_iter[key] = cache->lru_list.begin();
+            cache->expert_stats[key].is_cached = true;
         }
         
         return gpu_buffer;
@@ -414,6 +503,7 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
     
     void prefetch_experts_async(
         ggml_moe_cache* cache,
+        int layer_id,
         const std::vector<int>& expert_ids,
         const ggml_tensor* expert_tensor,
         void* stream
@@ -426,13 +516,17 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
         
         // Start async prefetch for each expert
         for (int expert_id : expert_ids) {
+            // Create composite key
+            ggml_moe_expert_key key{layer_id, expert_id};
+            
             // Skip if already cached
-            if (cache->cache_map.find(expert_id) != cache->cache_map.end()) {
+            if (cache->cache_map.find(key) != cache->cache_map.end()) {
                 continue;
             }
             
             // Load expert asynchronously (this will evict if needed)
             ggml_backend_buffer_t gpu_buffer = gpu_cache->load_expert_async(
+                layer_id,
                 expert_id,
                 expert_tensor,
                 stream
@@ -440,10 +534,10 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
             
             if (gpu_buffer) {
                 std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(cache->cache_mutex));
-                cache->cache_map[expert_id] = gpu_buffer;
-                cache->lru_list.push_front(expert_id);
-                cache->lru_iter[expert_id] = cache->lru_list.begin();
-                cache->expert_stats[expert_id].is_cached = true;
+                cache->cache_map[key] = gpu_buffer;
+                cache->lru_list.push_front(key);
+                cache->lru_iter[key] = cache->lru_list.begin();
+                cache->expert_stats[key].is_cached = true;
                 cache->stats.prefetches++;
             }
         }
@@ -451,15 +545,19 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
     
     void touch_expert(
         ggml_moe_cache* cache,
+        int layer_id,
         int expert_id
     ) override {
         if (!cache) return;
         
         std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(cache->cache_mutex));
         
+        // Create composite key
+        ggml_moe_expert_key key{layer_id, expert_id};
+        
         // Update access statistics
         auto now = std::chrono::steady_clock::now();
-        auto& stats = cache->expert_stats[expert_id];
+        auto& stats = cache->expert_stats[key];
         stats.access_count++;
         stats.last_access_time = now;
         
@@ -476,10 +574,10 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
         }
         
         // Update LRU if expert is cached
-        auto it = cache->lru_iter.find(expert_id);
+        auto it = cache->lru_iter.find(key);
         if (it != cache->lru_iter.end()) {
             cache->lru_list.erase(it->second);
-            cache->lru_list.push_front(expert_id);
+            cache->lru_list.push_front(key);
             it->second = cache->lru_list.begin();
         }
         
@@ -528,11 +626,11 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
         std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(cache->cache_mutex));
         
         // Free all cached buffers
-        for (auto& [expert_id, buffer] : cache->cache_map) {
+        for (auto& [key, buffer] : cache->cache_map) {
             if (buffer) {
                 ggml_backend_buffer_free(buffer);
             }
-            cache->expert_stats[expert_id].is_cached = false;
+            cache->expert_stats[key].is_cached = false;
         }
         
         cache->cache_map.clear();
@@ -547,11 +645,11 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
         if (!cache) return;
         
         // Free all cached buffers
-        for (auto& [expert_id, buffer] : cache->cache_map) {
+        for (auto& [key, buffer] : cache->cache_map) {
             if (buffer) {
                 ggml_backend_buffer_free(buffer);
             }
-            cache->expert_stats[expert_id].is_cached = false;
+            cache->expert_stats[key].is_cached = false;
         }
         
         cache->cache_map.clear();
@@ -611,3 +709,84 @@ ggml_moe_cache_interface* ggml_moe_cache_get_interface(ggml_backend_t backend) {
     
     return nullptr;
 }
+
+// C API implementations
+extern "C" {
+
+GGML_API ggml_moe_cache* ggml_moe_cache_init(
+    ggml_backend_t backend,
+    const ggml_moe_cache_config* config,
+    int num_layers,
+    int num_experts_per_layer
+) {
+    if (!backend || !config) return nullptr;
+    
+    ggml_moe_cache_interface* interface = ggml_moe_cache_get_interface(backend);
+    if (!interface) return nullptr;
+    
+    return interface->create_cache(backend, config, num_layers, num_experts_per_layer);
+}
+
+GGML_API void ggml_moe_cache_free(
+    ggml_moe_cache* cache
+) {
+    if (!cache || !cache->impl) return;
+    cache->impl->destroy_cache(cache);
+}
+
+GGML_API ggml_backend_buffer_t ggml_moe_cache_get_expert(
+    ggml_moe_cache* cache,
+    int layer_id,
+    int expert_id,
+    const ggml_tensor* expert_tensor,
+    void* stream
+) {
+    if (!cache || !cache->impl) return nullptr;
+    return cache->impl->get_expert_async(cache, layer_id, expert_id, expert_tensor, stream);
+}
+
+GGML_API void ggml_moe_cache_prefetch(
+    ggml_moe_cache* cache,
+    int layer_id,
+    const int* expert_ids,
+    int num_experts,
+    const ggml_tensor* expert_tensor,
+    void* stream
+) {
+    if (!cache || !cache->impl || !expert_ids) return;
+    
+    std::vector<int> expert_ids_vec(expert_ids, expert_ids + num_experts);
+    cache->impl->prefetch_experts_async(cache, layer_id, expert_ids_vec, expert_tensor, stream);
+}
+
+GGML_API void ggml_moe_cache_touch(
+    ggml_moe_cache* cache,
+    int layer_id,
+    int expert_id
+) {
+    if (!cache || !cache->impl) return;
+    cache->impl->touch_expert(cache, layer_id, expert_id);
+}
+
+GGML_API ggml_moe_cache_stats ggml_moe_cache_get_stats(
+    const ggml_moe_cache* cache
+) {
+    if (!cache || !cache->impl) return ggml_moe_cache_stats{};
+    return cache->impl->get_stats(cache);
+}
+
+GGML_API void ggml_moe_cache_reset_stats(
+    ggml_moe_cache* cache
+) {
+    if (!cache || !cache->impl) return;
+    cache->impl->reset_stats(cache);
+}
+
+GGML_API void ggml_moe_cache_clear(
+    ggml_moe_cache* cache
+) {
+    if (!cache || !cache->impl) return;
+    cache->impl->clear_cache(cache);
+}
+
+} // extern "C"

@@ -46,6 +46,7 @@ static std::vector<int> extract_expert_ids_from_tensor(const ggml_tensor* ids_te
 // Cached version of ggml_mul_mat_id for MoE operations
 void ggml_mul_mat_id_cached(
     ggml_tensor* dst,
+    int layer_id,
     ggml_moe_cache* cache
 ) {
     if (!dst || !cache) {
@@ -70,20 +71,31 @@ void ggml_mul_mat_id_cached(
     // Get backend stream for async operations
     void* stream = nullptr; // Use default stream for now
     
-    // Pre-fetch predicted experts for next iteration
+    // Pre-fetch predicted experts for next iteration (layer-aware)
     if (cache->config.enable_prefetch && cache->prefetch_engine) {
-        std::vector<int> next_experts = cache->prefetch_engine->predict_next_experts(
+        std::vector<std::pair<int, int>> next_experts = cache->prefetch_engine->predict_next_experts(
+            layer_id,
             current_expert_ids,
             cache->config.prefetch_depth
         );
         
         if (!next_experts.empty()) {
-            cache->impl->prefetch_experts_async(
-                cache,
-                next_experts,
-                src0,
-                stream
-            );
+            // Group predictions by layer for efficient prefetching
+            std::unordered_map<int, std::vector<int>> experts_by_layer;
+            for (const auto& [pred_layer_id, pred_expert_id] : next_experts) {
+                experts_by_layer[pred_layer_id].push_back(pred_expert_id);
+            }
+            
+            // Prefetch for each layer
+            for (const auto& [pred_layer_id, expert_ids] : experts_by_layer) {
+                cache->impl->prefetch_experts_async(
+                    cache,
+                    pred_layer_id,
+                    expert_ids,
+                    src0,
+                    stream
+                );
+            }
         }
     }
     
@@ -94,6 +106,7 @@ void ggml_mul_mat_id_cached(
     for (int expert_id : current_expert_ids) {
         auto buffer = cache->impl->get_expert_async(
             cache,
+            layer_id,
             expert_id,
             src0,
             stream
@@ -109,12 +122,12 @@ void ggml_mul_mat_id_cached(
     
     // Update LRU and statistics for used experts
     for (int expert_id : current_expert_ids) {
-        cache->impl->touch_expert(cache, expert_id);
+        cache->impl->touch_expert(cache, layer_id, expert_id);
     }
     
-    // Update prefetch engine with actual usage
+    // Update prefetch engine with actual usage (layer-aware)
     if (cache->prefetch_engine) {
-        cache->prefetch_engine->update_patterns(current_expert_ids, {});
+        cache->prefetch_engine->update_patterns(layer_id, current_expert_ids, {});
     }
     
     // Now perform the actual matrix multiplication with cached experts
@@ -129,7 +142,8 @@ void ggml_mul_mat_id_cached(
         int expert_id = current_expert_ids[i];
         if (i < expert_buffers.size() && expert_buffers[i]) {
             // Update statistics for successful cache usage
-            if (cache->cache_map.find(expert_id) != cache->cache_map.end()) {
+            ggml_moe_expert_key key{layer_id, expert_id};
+            if (cache->cache_map.find(key) != cache->cache_map.end()) {
                 cache->stats.prefetch_hits++;
             }
         }
@@ -185,7 +199,8 @@ static ggml_moe_cache_config get_cache_config_from_env() {
 // Initialize cache for a model
 ggml_moe_cache* ggml_moe_cache_init_for_model(
     ggml_backend_t backend,
-    const ggml_tensor* expert_tensor
+    const ggml_tensor* expert_tensor,
+    int num_layers
 ) {
     if (!backend || !expert_tensor) {
         return nullptr;
@@ -198,12 +213,14 @@ ggml_moe_cache* ggml_moe_cache_init_for_model(
     // Assuming expert_tensor is 3D: [dim0, dim1, num_experts]
     int num_experts = expert_tensor->ne[2];
     
-    // Initialize cache
-    ggml_moe_cache* cache = ggml_moe_cache_init(backend, &config, num_experts);
+    // Initialize cache with layer awareness
+    ggml_moe_cache* cache = ggml_moe_cache_init(backend, &config, num_layers, num_experts);
     
     if (cache && cache->prefetch_engine) {
-        // Initialize co-occurrence matrix
-        cache->prefetch_engine->init_cooccurrence(num_experts);
+        // Initialize co-occurrence matrices for each layer
+        for (int layer_id = 0; layer_id < num_layers; ++layer_id) {
+            cache->prefetch_engine->init_cooccurrence(layer_id, num_experts);
+        }
     }
     
     return cache;

@@ -114,18 +114,40 @@ llm_build_llama::llm_build_llama(const llama_model & model, const llm_graph_para
                     LLM_NORM_RMS, il);
             cb(cur, "ffn_norm", il);
 
-            cur = build_moe_ffn(cur,
-                    model.layers[il].ffn_gate_inp,
-                    model.layers[il].ffn_up_exps,
-                    model.layers[il].ffn_gate_exps,
-                    model.layers[il].ffn_down_exps,
-                    nullptr,
-                    n_expert, n_expert_used,
-                    LLM_FFN_SILU, true,
-                    false, 0.0,
-                    LLAMA_EXPERT_GATING_FUNC_TYPE_SOFTMAX,
-                    il);
-            cb(cur, "ffn_moe_out", il);
+            // Check if we should use cache for this MoE operation
+            if (model.moe_cache && ggml_moe_should_use_cache(model.layers[il].ffn_gate_inp)) {
+                // Use cached version with layer awareness
+                ggml_tensor* moe_out = build_moe_ffn(cur,
+                        model.layers[il].ffn_gate_inp,
+                        model.layers[il].ffn_up_exps,
+                        model.layers[il].ffn_gate_exps,
+                        model.layers[il].ffn_down_exps,
+                        nullptr,
+                        n_expert, n_expert_used,
+                        LLM_FFN_SILU, true,
+                        false, 0.0,
+                        LLAMA_EXPERT_GATING_FUNC_TYPE_SOFTMAX,
+                        il);
+                cb(moe_out, "ffn_moe_out", il);
+                
+                // Apply layer-aware caching
+                ggml_mul_mat_id_cached(moe_out, il, model.moe_cache);
+                cur = moe_out;
+            } else {
+                // Use regular non-cached version
+                cur = build_moe_ffn(cur,
+                        model.layers[il].ffn_gate_inp,
+                        model.layers[il].ffn_up_exps,
+                        model.layers[il].ffn_gate_exps,
+                        model.layers[il].ffn_down_exps,
+                        nullptr,
+                        n_expert, n_expert_used,
+                        LLM_FFN_SILU, true,
+                        false, 0.0,
+                        LLAMA_EXPERT_GATING_FUNC_TYPE_SOFTMAX,
+                        il);
+                cb(cur, "ffn_moe_out", il);
+            }
         }
         cur = ggml_add(ctx0, cur, ffn_inp);
         cb(cur, "ffn_out", il);
