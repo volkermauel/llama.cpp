@@ -2290,24 +2290,12 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
     auto get_layer_buft_list = [&](int il) -> llama_model::impl::layer_dev {
         const bool is_swa = il < (int) hparams.n_layer && hparams.is_swa(il);
         
-        // Check if this layer contains expert tensors and if we have a GPU expert limit
-        bool has_expert_tensors = false;
-        if (il < (int) hparams.n_layer && hparams.n_expert > 0) {
-            // This is a layer that could contain expert tensors
-            // For now, we'll check if n_gpu_experts is set and limit GPU assignment
-            if (params.moe_cache_params && params.moe_cache_params->n_gpu_experts >= 0 && params.moe_cache_params->n_gpu_experts < (int)hparams.n_expert) {
-                has_expert_tensors = true;
-                LLAMA_LOG_INFO("%s: Layer %d has expert tensors, n_gpu_experts=%d, total_experts=%u\n",
-                    __func__, il, params.moe_cache_params->n_gpu_experts, hparams.n_expert);
-            }
-        }
+        // Determine if this layer should be on GPU based on -ngl parameter
+        // This handles non-expert layers and provides the base GPU assignment
+        const bool in_gpu_range = il >= i_gpu_start && (il - i_gpu_start) < act_gpu_layers;
         
-        if (il < i_gpu_start || (il - i_gpu_start) >= act_gpu_layers || has_expert_tensors) {
-            if (has_expert_tensors) {
-                LLAMA_LOG_INFO("load_tensors: layer %3d assigned to CPU due to MoE GPU expert limit, is_swa = %d\n", il, is_swa);
-            } else {
-                LLAMA_LOG_DEBUG("load_tensors: layer %3d assigned to device %s, is_swa = %d\n", il, ggml_backend_dev_name(cpu_dev), is_swa);
-            }
+        if (!in_gpu_range) {
+            LLAMA_LOG_DEBUG("load_tensors: layer %3d assigned to CPU (outside -ngl range), is_swa = %d\n", il, is_swa);
             return {cpu_dev, &pimpl->cpu_buft_list};
         }
         const int layer_gpu = std::upper_bound(splits.begin(), splits.begin() + n_devices(), float(il - i_gpu_start)/act_gpu_layers) - splits.begin();
@@ -2500,6 +2488,32 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
                 buft = select_weight_buft(hparams, t_meta, op, *buft_list);
                 if (!buft) {
                     throw std::runtime_error(format("failed to find a compatible buffer type for tensor %s", tn.str().c_str()));
+                }
+            }
+            
+            // Handle MoE GPU expert limiting for GPU layers
+            // This applies when:
+            // 1. We have a GPU buffer type (layer is on GPU via -ngl)
+            // 2. MoE expert limiting is enabled (--moe-gpu-experts >= 0)
+            // 3. This is an expert tensor
+            if (buft != ggml_backend_cpu_buffer_type() &&
+                params.moe_cache_params &&
+                params.moe_cache_params->n_gpu_experts >= 0 &&
+                hparams.n_expert > 0) {
+                
+                // Check if this is an expert tensor that should be managed by MoE cache
+                bool is_expert_tensor = (tensor == LLM_TENSOR_FFN_GATE_EXPS ||
+                                        tensor == LLM_TENSOR_FFN_DOWN_EXPS ||
+                                        tensor == LLM_TENSOR_FFN_UP_EXPS ||
+                                        tensor == LLM_TENSOR_FFN_GATE_CHEXPS ||
+                                        tensor == LLM_TENSOR_FFN_DOWN_CHEXPS ||
+                                        tensor == LLM_TENSOR_FFN_UP_CHEXPS);
+                
+                if (is_expert_tensor && info.layer == LLM_TENSOR_LAYER_REPEATING) {
+                    // Keep expert tensors on GPU - the MoE cache system will handle the limiting
+                    // The actual expert limiting happens during computation, not during tensor loading
+                    LLAMA_LOG_DEBUG("%s: expert tensor %s in layer %d on GPU (will be managed by MoE cache system, n_gpu_experts=%d)\n",
+                                   __func__, tn.str().c_str(), tn.bid, params.moe_cache_params->n_gpu_experts);
                 }
             }
 
