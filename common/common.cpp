@@ -1181,6 +1181,9 @@ struct llama_model_params common_model_params_to_llama(common_params & params) {
     mparams.progress_callback           = params.load_progress_callback;
     mparams.progress_callback_user_data = params.load_progress_callback_user_data;
 
+    // Pass MoE cache parameters to the model
+    mparams.moe_cache_params = &params.moe_cache_params;
+
     return mparams;
 }
 
