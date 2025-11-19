@@ -258,10 +258,11 @@ void ggml_moe_cache_reset_session(ggml_moe_cache* cache) {
     // Clear cached experts but keep statistics
     cache->impl->clear_cache(cache);
     
-    // Reset prefetch engine state
+    // Reset prefetch engine state (layer-aware)
     if (cache->prefetch_engine) {
-        cache->prefetch_engine->token_history.clear();
-        cache->prefetch_engine->recent_experts.clear();
+        cache->prefetch_engine->token_history_per_layer.clear();
+        cache->prefetch_engine->recent_experts_per_layer.clear();
+        cache->prefetch_engine->expert_cooccurrence_per_layer.clear();
     }
     
     // Reset timing statistics but keep counters

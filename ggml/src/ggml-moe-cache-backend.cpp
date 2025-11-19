@@ -171,6 +171,8 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
             // Return to pool
             pinned_buffer_pool.push(buffer);
         }
+    }
+    
     // Calculate expert size in bytes
     size_t get_expert_size(const ggml_tensor* expert_tensor, int layer_id, int expert_id) {
         (void)layer_id; // Mark as unused for now

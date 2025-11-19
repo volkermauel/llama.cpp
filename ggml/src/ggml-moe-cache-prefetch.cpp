@@ -11,24 +11,25 @@
 static std::unordered_map<ggml_moe_cache*, std::unique_ptr<ggml_moe_ml::ml_prefetch_engine>> g_ml_engines;
 static std::mutex g_ml_engines_mutex;
 
-std::vector<int> ggml_moe_prefetch_engine::predict_next_experts(
+std::vector<std::pair<int, int>> ggml_moe_prefetch_engine::predict_next_experts(
+    int layer_id,
     const std::vector<int>& current_experts,
     int top_k
 ) {
     std::lock_guard<std::mutex> lock(engine_mutex);
     
-    std::vector<int> predictions;
+    std::vector<std::pair<int, int>> predictions;
     std::set<int> seen_experts(current_experts.begin(), current_experts.end());
     
-    // Check if ML prefetching is enabled for this cache
-    // This would need to be passed through the cache configuration
-    // For now, we'll use the heuristic approach as fallback
+    // Get co-occurrence matrix for this layer
+    auto& cooccurrence = expert_cooccurrence_per_layer[layer_id];
+    auto& recent_experts = recent_experts_per_layer[layer_id];
     
     // Method 1: Co-occurrence based prediction
     for (int expert : current_experts) {
-        if (expert >= 0 && expert < (int)expert_cooccurrence.size()) {
+        if (expert >= 0 && expert < (int)cooccurrence.size()) {
             // Find experts that frequently co-occur with current experts
-            const auto& cooccur = expert_cooccurrence[expert];
+            const auto& cooccur = cooccurrence[expert];
             
             // Get top co-occurring experts
             std::vector<int> candidate_experts;
@@ -44,20 +45,20 @@ std::vector<int> ggml_moe_prefetch_engine::predict_next_experts(
                     return cooccur[a] > cooccur[b];
                 });
             
-            // Add top candidates
+            // Add top candidates (same layer)
             for (int i = 0; i < std::min(top_k/2, (int)candidate_experts.size()); ++i) {
-                predictions.push_back(candidate_experts[i]);
+                predictions.push_back({layer_id, candidate_experts[i]});
                 seen_experts.insert(candidate_experts[i]);
             }
         }
     }
     
     // Method 2: Locality-based prediction
-    std::vector<int> locality_preds = predict_locality(recent_experts);
-    for (int expert : locality_preds) {
-        if (seen_experts.find(expert) == seen_experts.end() && predictions.size() < (size_t)top_k) {
-            predictions.push_back(expert);
-            seen_experts.insert(expert);
+    std::vector<std::pair<int, int>> locality_preds = predict_locality(layer_id, recent_experts);
+    for (const auto& [pred_layer_id, expert_id] : locality_preds) {
+        if (seen_experts.find(expert_id) == seen_experts.end() && predictions.size() < (size_t)top_k) {
+            predictions.push_back({pred_layer_id, expert_id});
+            seen_experts.insert(expert_id);
         }
     }
     
@@ -69,65 +70,69 @@ std::vector<int> ggml_moe_prefetch_engine::predict_next_experts(
     return predictions;
 }
 
-// ML-enhanced prediction (new function)
-std::vector<int> ggml_moe_prefetch_engine::predict_next_experts_ml(
+// ML-enhanced prediction (layer-aware)
+std::vector<std::pair<int, int>> ggml_moe_prefetch_engine::predict_next_experts_ml(
+    int layer_id,
     const std::vector<int>& current_experts,
     const std::vector<int>& recent_tokens,
-    int layer_id,
     int position,
     int top_k,
     class ggml_moe_ml::ml_prefetch_engine* ml_engine
 ) {
     if (!ml_engine || !ml_engine->is_ready()) {
         // Fall back to heuristic prediction
-        return predict_next_experts(current_experts, top_k);
+        return predict_next_experts(layer_id, current_experts, top_k);
     }
     
     // Use ML model for prediction
     return ml_engine->predict_next_experts(
+        layer_id,
         current_experts,
         recent_tokens,
-        layer_id,
         position,
         top_k
     );
 }
 
 void ggml_moe_prefetch_engine::update_patterns(
+    int layer_id,
     const std::vector<int>& used_experts,
     const std::vector<int>& tokens
 ) {
     std::lock_guard<std::mutex> lock(engine_mutex);
     
-    // Update co-occurrence matrix
+    // Update co-occurrence matrix for this layer
+    auto& cooccurrence = expert_cooccurrence_per_layer[layer_id];
     for (size_t i = 0; i < used_experts.size(); ++i) {
         int expert1 = used_experts[i];
-        if (expert1 < 0 || expert1 >= (int)expert_cooccurrence.size()) continue;
+        if (expert1 < 0 || expert1 >= (int)cooccurrence.size()) continue;
         
         for (size_t j = i + 1; j < used_experts.size(); ++j) {
             int expert2 = used_experts[j];
-            if (expert2 < 0 || expert2 >= (int)expert_cooccurrence.size()) continue;
+            if (expert2 < 0 || expert2 >= (int)cooccurrence.size()) continue;
             
             // Increment co-occurrence count
-            expert_cooccurrence[expert1][expert2]++;
-            expert_cooccurrence[expert2][expert1]++;
+            cooccurrence[expert1][expert2]++;
+            cooccurrence[expert2][expert1]++;
         }
     }
     
-    // Update recent experts
-    update_recent_experts(used_experts);
+    // Update recent experts for this layer
+    update_recent_experts(layer_id, used_experts);
     
-    // Update token history
+    // Update token history for this layer
+    auto& token_history = token_history_per_layer[layer_id];
     token_history.insert(token_history.end(), tokens.begin(), tokens.end());
     if (token_history.size() > HISTORY_SIZE) {
         token_history.erase(token_history.begin(), token_history.end() - HISTORY_SIZE);
     }
 }
 
-std::vector<int> ggml_moe_prefetch_engine::predict_locality(
+std::vector<std::pair<int, int>> ggml_moe_prefetch_engine::predict_locality(
+    int layer_id,
     const std::vector<int>& recent_experts
 ) {
-    std::vector<int> predictions;
+    std::vector<std::pair<int, int>> predictions;
     
     if (recent_experts.empty()) return predictions;
     
@@ -135,14 +140,15 @@ std::vector<int> ggml_moe_prefetch_engine::predict_locality(
     std::set<int> seen_experts(recent_experts.begin(), recent_experts.end());
     
     for (int expert : recent_experts) {
-        // Check neighboring experts
+        // Check neighboring experts in the same layer
         for (int offset = -2; offset <= 2; ++offset) {
             if (offset == 0) continue;
             
             int neighbor = expert + offset;
-            if (neighbor >= 0 && neighbor < (int)expert_cooccurrence.size() &&
+            auto& cooccurrence = expert_cooccurrence_per_layer[layer_id];
+            if (neighbor >= 0 && neighbor < (int)cooccurrence.size() &&
                 seen_experts.find(neighbor) == seen_experts.end()) {
-                predictions.push_back(neighbor);
+                predictions.push_back({layer_id, neighbor});
                 seen_experts.insert(neighbor);
             }
         }
@@ -151,7 +157,9 @@ std::vector<int> ggml_moe_prefetch_engine::predict_locality(
     return predictions;
 }
 
-void ggml_moe_prefetch_engine::update_recent_experts(const std::vector<int>& experts) {
+void ggml_moe_prefetch_engine::update_recent_experts(int layer_id, const std::vector<int>& experts) {
+    auto& recent_experts = recent_experts_per_layer[layer_id];
+    
     // Add experts to recent list, avoiding duplicates
     for (int expert : experts) {
         // Remove if already in list
@@ -170,21 +178,23 @@ void ggml_moe_prefetch_engine::update_recent_experts(const std::vector<int>& exp
     }
 }
 
-void ggml_moe_prefetch_engine::init_cooccurrence(int num_experts) {
+void ggml_moe_prefetch_engine::init_cooccurrence(int layer_id, int num_experts) {
     std::lock_guard<std::mutex> lock(engine_mutex);
     
-    expert_cooccurrence.assign(num_experts, std::vector<int>(num_experts, 0));
-    token_history.clear();
-    recent_experts.clear();
+    expert_cooccurrence_per_layer[layer_id] = std::vector<std::vector<int>>(num_experts, std::vector<int>(num_experts, 0));
+    token_history_per_layer[layer_id].clear();
+    recent_experts_per_layer[layer_id].clear();
 }
 
+// C API implementation
 // C API implementation
 ggml_moe_cache* ggml_moe_cache_init(
     ggml_backend_t backend,
     const ggml_moe_cache_config* config,
-    int num_experts
+    int num_layers,
+    int num_experts_per_layer
 ) {
-    if (!backend || !config || num_experts <= 0) {
+    if (!backend || !config || num_layers <= 0 || num_experts_per_layer <= 0) {
         return nullptr;
     }
     
@@ -195,9 +205,8 @@ ggml_moe_cache* ggml_moe_cache_init(
     }
     
     // Create cache using backend interface
-    return interface->create_cache(backend, config, num_experts);
+    return interface->create_cache(backend, config, num_layers, num_experts_per_layer);
 }
-
 void ggml_moe_cache_free(
     ggml_moe_cache* cache
 ) {
@@ -211,17 +220,19 @@ void ggml_moe_cache_free(
 
 ggml_backend_buffer_t ggml_moe_cache_get_expert(
     ggml_moe_cache* cache,
+    int layer_id,
     int expert_id,
     const ggml_tensor* expert_tensor,
     void* stream
 ) {
     if (!cache || !cache->impl) return nullptr;
     
-    return cache->impl->get_expert_async(cache, expert_id, expert_tensor, stream);
+    return cache->impl->get_expert_async(cache, layer_id, expert_id, expert_tensor, stream);
 }
 
 void ggml_moe_cache_prefetch(
     ggml_moe_cache* cache,
+    int layer_id,
     const int* expert_ids,
     int num_experts,
     const ggml_tensor* expert_tensor,
@@ -230,16 +241,17 @@ void ggml_moe_cache_prefetch(
     if (!cache || !cache->impl || !expert_ids || num_experts <= 0) return;
     
     std::vector<int> expert_ids_vec(expert_ids, expert_ids + num_experts);
-    cache->impl->prefetch_experts_async(cache, expert_ids_vec, expert_tensor, stream);
+    cache->impl->prefetch_experts_async(cache, layer_id, expert_ids_vec, expert_tensor, stream);
 }
 
 void ggml_moe_cache_touch(
     ggml_moe_cache* cache,
+    int layer_id,
     int expert_id
 ) {
     if (!cache || !cache->impl) return;
     
-    cache->impl->touch_expert(cache, expert_id);
+    cache->impl->touch_expert(cache, layer_id, expert_id);
 }
 
 ggml_moe_cache_stats ggml_moe_cache_get_stats(
@@ -267,32 +279,26 @@ void ggml_moe_cache_clear(
 }
 
 // Constructor implementation
+// Constructor implementation
 ggml_moe_cache::ggml_moe_cache(
     ggml_backend_t backend,
     const ggml_moe_cache_config& config,
-    int num_experts,
+    int num_layers,
+    int num_experts_per_layer,
     ggml_moe_cache_interface* impl
-) : config(config), backend(backend), num_experts(num_experts), impl(impl) {
-    // Initialize expert statistics
-    expert_stats.resize(num_experts);
-    for (auto& stats : expert_stats) {
-        stats.access_count = 0;
-        stats.access_frequency = 0.0;
-        stats.is_cached = false;
-        stats.access_frequency = 0.0;
-        stats.is_cached = false;
-    }
-    
+) : config(config), backend(backend), num_layers(num_layers), num_experts_per_layer(num_experts_per_layer), impl(impl) {
     // Initialize prefetch engine if enabled
     if (config.enable_prefetch) {
         prefetch_engine = std::make_unique<ggml_moe_prefetch_engine>();
-        prefetch_engine->init_cooccurrence(num_experts);
+        // Initialize co-occurrence matrices for each layer
+        for (int layer_id = 0; layer_id < num_layers; ++layer_id) {
+            prefetch_engine->init_cooccurrence(layer_id, num_experts_per_layer);
+        }
     }
     
     // Initialize statistics
     memset(&stats, 0, sizeof(stats));
 }
-
 // Destructor implementation
 ggml_moe_cache::~ggml_moe_cache() {
     // Clear cache before destruction
