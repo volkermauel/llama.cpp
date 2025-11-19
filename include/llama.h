@@ -6,6 +6,9 @@
 #include "ggml-backend.h"
 #include "ggml-opt.h"
 
+// Include MoE cache parameters
+#include "../src/llama-moe-cache-params.h"
+
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -264,6 +267,9 @@ extern "C" {
         ggml_backend_buffer_type_t buft;
     };
 
+    // Forward declaration for MoE cache parameters
+    struct llama_moe_cache_params;
+
     struct llama_model_params {
         // NULL-terminated list of devices to use for offloading (if NULL, all available devices are used)
         ggml_backend_dev_t * devices;
@@ -290,6 +296,9 @@ extern "C" {
 
         // override key-value pairs of the model meta data
         const struct llama_model_kv_override * kv_overrides;
+
+        // MoE cache parameters
+        struct llama_moe_cache_params moe_cache_params;
 
         // Keep the booleans together to avoid misalignment during copy-by-value.
         bool vocab_only;      // only load the vocabulary, no weights
