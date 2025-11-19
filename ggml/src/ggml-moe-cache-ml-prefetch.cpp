@@ -13,8 +13,11 @@
 
 // Platform-specific headers for filesystem utilities
 #ifdef _WIN32
+#define NOMINMAX
 #include <direct.h>
 #include <windows.h>
+#include <shlobj.h>
+#include <stdlib.h>
 #else
 #include <sys/stat.h>
 #include <unistd.h>
@@ -65,7 +68,41 @@ bool fs_create_directory_with_parents(const std::string & path) {
 std::string fs_get_cache_directory() {
     std::string cache_directory;
     
-    // Check environment variable first
+#ifdef _WIN32
+    // Windows implementation
+    char* env_value = nullptr;
+    size_t env_size = 0;
+    
+    // Check LOCALAPPDATA environment variable first
+    if (_dupenv_s(&env_value, &env_size, "LOCALAPPDATA") == 0 && env_value != nullptr) {
+        cache_directory = env_value;
+        cache_directory += "\\llama.cpp";
+        free(env_value);
+        return cache_directory;
+    }
+    
+    // Check APPDATA environment variable
+    if (_dupenv_s(&env_value, &env_size, "APPDATA") == 0 && env_value != nullptr) {
+        cache_directory = env_value;
+        cache_directory += "\\llama.cpp";
+        free(env_value);
+        return cache_directory;
+    }
+    
+    // Fallback: use TEMP directory
+    if (_dupenv_s(&env_value, &env_size, "TEMP") == 0 && env_value != nullptr) {
+        cache_directory = env_value;
+        cache_directory += "\\llama.cpp.cache";
+        free(env_value);
+        return cache_directory;
+    }
+    
+    // Last resort: use current directory
+    cache_directory = ".llama.cpp.cache";
+    return cache_directory;
+    
+#else
+    // Unix-like systems (Linux, macOS)
     const char* xdg_cache_home = getenv("XDG_CACHE_HOME");
     if (xdg_cache_home && xdg_cache_home[0] != '\0') {
         cache_directory = xdg_cache_home;
@@ -73,7 +110,6 @@ std::string fs_get_cache_directory() {
         return cache_directory;
     }
     
-    // Check HOME environment variable
     const char* home_dir = getenv("HOME");
     if (home_dir && home_dir[0] != '\0') {
         cache_directory = home_dir;
@@ -92,6 +128,7 @@ std::string fs_get_cache_directory() {
     // Last resort: use /tmp
     cache_directory = "/tmp/llama.cpp.cache";
     return cache_directory;
+#endif
 }
 
 } // anonymous namespace
@@ -144,7 +181,7 @@ std::vector<float> ml_predictor::predict(const std::vector<float>& features) {
             sum += features[j] * w1[j * hidden_size + i];
         }
         // ReLU activation
-        hidden[i] = std::max(0.0f, sum);
+        hidden[i] = (std::max)(0.0f, sum);
     }
 
     // Forward pass: hidden -> output layer
@@ -222,14 +259,14 @@ std::vector<float> feature_extractor::extract_features(
 
     // 2. Embed recent tokens (next 128 features)
     auto token_embeddings = embed_tokens(recent_tokens);
-    int token_embed_size = std::min(128, feature_size - idx);
+    int token_embed_size = (std::min)(128, feature_size - idx);
     for (int i = 0; i < token_embed_size && i < (int)token_embeddings.size(); ++i) {
         features[idx + i] = token_embeddings[i];
     }
     idx += token_embed_size;
 
     // 3. Position and layer encoding (next 64 features)
-    auto pos_enc = encode_position(position, layer_id, std::min(64, feature_size - idx));
+    auto pos_enc = encode_position(position, layer_id, (std::min)(64, feature_size - idx));
     for (int i = 0; i < (int)pos_enc.size(); ++i) {
         features[idx + i] = pos_enc[i];
     }
@@ -325,7 +362,7 @@ void pattern_analyzer::analyze_history(
             [](const auto& a, const auto& b) { return a.second > b.second; });
         
         // Add top next experts to pattern
-        for (int i = 0; i < std::min(3, (int)next_counts.size()); ++i) {
+        for (int i = 0; i < (std::min)(3, (int)next_counts.size()); ++i) {
             pattern.push_back(next_counts[i].first);
         }
         
@@ -664,7 +701,7 @@ void ml_prefetch_engine::update_with_actual(
         for (int j = 0; j < predictor_->feature_size; ++j) {
             sum += features[j] * predictor_->w1[j * predictor_->hidden_size + i];
         }
-        hidden[i] = std::max(0.0f, sum); // ReLU
+        hidden[i] = (std::max)(0.0f, sum); // ReLU
     }
 
     std::vector<float> output(predictor_->num_experts, 0.0f);
@@ -1056,7 +1093,7 @@ int ggml_moe_ml_prefetch_predict(
         current_experts_vec, recent_tokens_vec, layer_id, position, max_predictions
     );
 
-    int num_predictions = std::min(max_predictions, (int)predictions.size());
+    int num_predictions = (std::min)(max_predictions, (int)predictions.size());
     for (int i = 0; i < num_predictions; ++i) {
         predicted_experts[i] = predictions[i];
     }
