@@ -2514,12 +2514,12 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
                 hparams.n_expert > 0) {
                 
                 // Check if this is an expert tensor that should be managed by MoE cache
-                bool is_expert_tensor = (cur == LLM_TENSOR_FFN_GATE_EXPS ||
-                                        cur == LLM_TENSOR_FFN_DOWN_EXPS ||
-                                        cur == LLM_TENSOR_FFN_UP_EXPS ||
-                                        cur == LLM_TENSOR_FFN_GATE_CHEXPS ||
-                                        cur == LLM_TENSOR_FFN_DOWN_CHEXPS ||
-                                        cur == LLM_TENSOR_FFN_UP_CHEXPS);
+                bool is_expert_tensor = (info.type == LLM_TENSOR_FFN_GATE_EXPS ||
+                                        info.type == LLM_TENSOR_FFN_DOWN_EXPS ||
+                                        info.type == LLM_TENSOR_FFN_UP_EXPS ||
+                                        info.type == LLM_TENSOR_FFN_GATE_CHEXPS ||
+                                        info.type == LLM_TENSOR_FFN_DOWN_CHEXPS ||
+                                        info.type == LLM_TENSOR_FFN_UP_CHEXPS);
                 
                 if (is_expert_tensor && info.layer == LLM_TENSOR_LAYER_REPEATING) {
                     // For expert tensors, we need to decide whether to keep them on GPU or CPU
