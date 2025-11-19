@@ -211,7 +211,7 @@ struct ggml_moe_prefetch_engine {
         int layer_id,
         int position,
         int top_k,
-        struct ggml_moe_ml::ml_prefetch_engine* ml_engine
+        class ggml_moe_ml::ml_prefetch_engine* ml_engine
     );
     
     // Update patterns based on actual usage
