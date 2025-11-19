@@ -8,6 +8,7 @@
 #include <mutex>
 #include <memory>
 #include <chrono>
+#include <string>
 
 // Forward declaration for ML prefetching
 namespace ggml_moe_ml {
@@ -199,7 +200,7 @@ struct ggml_moe_cache {
     std::unique_ptr<ggml_moe_prefetch_engine> prefetch_engine;
     
     // Thread safety
-    std::mutex cache_mutex;
+    mutable std::mutex cache_mutex;
     
     // Backend-specific implementation
     ggml_moe_cache_interface* impl;

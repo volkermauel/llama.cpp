@@ -2,6 +2,34 @@
 #include "ggml.h"
 #include "llama.h"
 #include <algorithm>
+#include <cstring>
+#include <cstdarg>
+
+// Simple backend detection functions
+static bool ggml_backend_is_cuda(ggml_backend_t backend) {
+    return backend != nullptr && strstr(ggml_backend_name(backend), "CUDA") != nullptr;
+}
+
+static bool ggml_backend_is_hip(ggml_backend_t backend) {
+    return backend != nullptr && strstr(ggml_backend_name(backend), "HIP") != nullptr;
+}
+
+// Simple logging macros for ggml module
+#define GGML_LOG_LEVEL_ERROR 2
+#define GGML_LOG_LEVEL_DEBUG 4
+
+static void ggml_log_internal(int level, const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    if (level >= GGML_LOG_LEVEL_ERROR) {
+        fprintf(stderr, "ggml_moe_cache: ");
+        vfprintf(stderr, format, args);
+    }
+    va_end(args);
+}
+
+#define LLAMA_LOG_ERROR(...) ggml_log_internal(GGML_LOG_LEVEL_ERROR, __VA_ARGS__)
+#define LLAMA_LOG_DEBUG(...) ggml_log_internal(GGML_LOG_LEVEL_DEBUG, __VA_ARGS__)
 
 // Update LRU queue when an expert is accessed
 void ggml_moe_cache::update_lru(const ggml_moe_expert_key& key) {
@@ -124,8 +152,8 @@ void ggml_moe_cache::stream_expert_to_gpu(const ggml_moe_expert_key& key) {
     
     // Allocate GPU buffer for this expert
     size_t expert_size = ggml_backend_buffer_get_size(ram_buffer);
-    ggml_backend_buffer_t gpu_buffer = ggml_backend_buft_alloc_buffer(
-        ggml_backend_get_device(backend), expert_size);
+    ggml_backend_buffer_t gpu_buffer = ggml_backend_alloc_buffer(
+        backend, expert_size);
     
     if (!gpu_buffer) {
         LLAMA_LOG_ERROR("Failed to allocate GPU buffer for expert (%d, %d)\n", 
