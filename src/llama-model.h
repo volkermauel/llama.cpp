@@ -13,6 +13,9 @@
 #include <unordered_map>
 #include <vector>
 
+// Forward declaration for MoE cache
+struct ggml_moe_cache;
+
 struct llama_cparams;
 struct llama_ubatch;
 struct llama_model_loader;
@@ -407,50 +410,56 @@ struct llama_layer {
     struct llama_layer_shortconv shortconv;
 
     struct llama_layer_nextn nextn;
+struct llama_layer_nextn nextn;
 };
 
+// Forward declaration for MoE cache
+struct ggml_moe_cache;
+
 struct llama_model {
-    llm_type type = LLM_TYPE_UNKNOWN;
-    llm_arch arch = LLM_ARCH_UNKNOWN;
+llm_type type = LLM_TYPE_UNKNOWN;
+llm_arch arch = LLM_ARCH_UNKNOWN;
 
-    std::string name = "n/a";
+std::string name = "n/a";
 
-    llama_hparams hparams = {};
-    llama_vocab   vocab;
+llama_hparams hparams = {};
+llama_vocab   vocab;
 
-    // for classifier models
-    std::vector<std::string> classifier_labels;
+// for classifier models
+std::vector<std::string> classifier_labels;
 
-    struct ggml_tensor * tok_embd   = nullptr;
-    struct ggml_tensor * type_embd  = nullptr;
-    struct ggml_tensor * pos_embd   = nullptr;
-    struct ggml_tensor * tok_norm   = nullptr;
-    struct ggml_tensor * tok_norm_b = nullptr;
+struct ggml_tensor * tok_embd   = nullptr;
+struct ggml_tensor * type_embd  = nullptr;
+struct ggml_tensor * pos_embd   = nullptr;
+struct ggml_tensor * tok_norm   = nullptr;
+struct ggml_tensor * tok_norm_b = nullptr;
 
-    struct ggml_tensor * output_norm     = nullptr;
-    struct ggml_tensor * output_norm_b   = nullptr;
-    struct ggml_tensor * output          = nullptr;
-    struct ggml_tensor * output_b        = nullptr;
-    struct ggml_tensor * output_norm_enc = nullptr;
+struct ggml_tensor * output_norm     = nullptr;
+struct ggml_tensor * output_norm_b   = nullptr;
+struct ggml_tensor * output          = nullptr;
+struct ggml_tensor * output_b        = nullptr;
+struct ggml_tensor * output_norm_enc = nullptr;
 
-    // classifier
-    struct ggml_tensor * cls       = nullptr;
-    struct ggml_tensor * cls_b     = nullptr;
-    struct ggml_tensor * cls_out   = nullptr;
-    struct ggml_tensor * cls_out_b = nullptr;
+// classifier
+struct ggml_tensor * cls       = nullptr;
+struct ggml_tensor * cls_b     = nullptr;
+struct ggml_tensor * cls_out   = nullptr;
+struct ggml_tensor * cls_out_b = nullptr;
 
-    struct ggml_tensor * conv1d   = nullptr;
-    struct ggml_tensor * conv1d_b = nullptr;
+struct ggml_tensor * conv1d   = nullptr;
+struct ggml_tensor * conv1d_b = nullptr;
 
-    // gemma3n altup
-    struct ggml_tensor * tok_embd_per_layer   = nullptr;
-    struct ggml_tensor * altup_proj           = nullptr;
-    struct ggml_tensor * altup_unembd_proj    = nullptr;
-    struct ggml_tensor * per_layer_model_proj = nullptr;
-    struct ggml_tensor * per_layer_proj_norm  = nullptr;
+// gemma3n altup
+struct ggml_tensor * tok_embd_per_layer   = nullptr;
+struct ggml_tensor * altup_proj           = nullptr;
+struct ggml_tensor * altup_unembd_proj    = nullptr;
+struct ggml_tensor * per_layer_model_proj = nullptr;
+struct ggml_tensor * per_layer_proj_norm  = nullptr;
 
-    std::vector<llama_layer> layers;
+std::vector<llama_layer> layers;
 
+// MoE cache for expert offloading and caching
+ggml_moe_cache* moe_cache = nullptr;
     //Dense linear projections for SentenceTransformers models like embeddinggemma
     // For Sentence Transformers models structure see
     // https://sbert.net/docs/sentence_transformer/usage/custom_models.html#structure-of-sentence-transformer-models
