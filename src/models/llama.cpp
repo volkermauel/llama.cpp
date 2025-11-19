@@ -1,4 +1,5 @@
 #include "models.h"
+#include "ggml-moe-cache.h"
 
 llm_build_llama::llm_build_llama(const llama_model & model, const llm_graph_params & params) : llm_graph_context(params) {
     const int64_t n_embd_head = hparams.n_embd_head_v;
