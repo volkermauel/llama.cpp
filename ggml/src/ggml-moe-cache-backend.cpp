@@ -207,16 +207,18 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
         const std::vector<int>& used_experts,
         const std::vector<int>& tokens
     ) {
+        if (!prefetch_engine) return;
+        
         // Update recent experts for this layer
         update_recent_experts(layer_id, used_experts);
         
         // Update co-occurrence matrix for this layer
-        auto& cooccurrence = expert_cooccurrence_per_layer[layer_id];
+        auto& cooccurrence = prefetch_engine->expert_cooccurrence_per_layer[layer_id];
         for (size_t i = 0; i < used_experts.size(); ++i) {
             for (size_t j = i + 1; j < used_experts.size(); ++j) {
                 int expert_i = used_experts[i];
                 int expert_j = used_experts[j];
-                if (expert_i < cooccurrence.size() && expert_j < cooccurrence.size()) {
+                if (expert_i < (int)cooccurrence.size() && expert_j < (int)cooccurrence.size()) {
                     cooccurrence[expert_i][expert_j]++;
                     cooccurrence[expert_j][expert_i]++;
                 }
@@ -239,7 +241,9 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
     }
     
     void update_recent_experts(int layer_id, const std::vector<int>& experts) {
-        auto& recent_experts = recent_experts_per_layer[layer_id];
+        if (!prefetch_engine) return;
+        
+        auto& recent_experts = prefetch_engine->recent_experts_per_layer[layer_id];
         
         for (int expert_id : experts) {
             // Add to recent list, remove duplicates
@@ -250,27 +254,28 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
             recent_experts.push_back(expert_id);
             
             // Keep only recent entries
-            if (recent_experts.size() > RECENT_SIZE) {
+            if (recent_experts.size() > prefetch_engine->RECENT_SIZE) {
                 recent_experts.erase(recent_experts.begin());
             }
         }
     }
     
     void init_cooccurrence(int layer_id, int num_experts) {
-        expert_cooccurrence_per_layer[layer_id] =
+        if (!prefetch_engine) return;
+        
+        prefetch_engine->expert_cooccurrence_per_layer[layer_id] =
             std::vector<std::vector<int>>(num_experts, std::vector<int>(num_experts, 0));
-    }
     }
     
     // Calculate priority score combining recency and frequency
     double calculate_priority(const ggml_moe_expert_key& key) {
-        auto& stats = expert_stats[key];
+        auto& expert_stat = expert_stats[key];
         auto time_since_access = std::chrono::duration_cast<std::chrono::seconds>(
-            std::chrono::steady_clock::now() - stats.last_access_time).count();
+            std::chrono::steady_clock::now() - expert_stat.last_access_time).count();
         
         // Combine frequency and recency (lower score = better candidate for eviction)
         // Add small epsilon to avoid division by zero
-        double freq_factor = stats.access_frequency + 0.01;
+        double freq_factor = expert_stat.access_frequency + 0.01;
         double time_factor = time_since_access + 1.0; // +1 to avoid zero
         
         // Priority score: time since access divided by access frequency

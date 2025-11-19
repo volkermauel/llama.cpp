@@ -85,13 +85,21 @@ std::vector<std::pair<int, int>> ggml_moe_prefetch_engine::predict_next_experts_
     }
     
     // Use ML model for prediction
-    return ml_engine->predict_next_experts(
-        layer_id,
+    std::vector<int> predicted_experts = ml_engine->predict_next_experts(
         current_experts,
         recent_tokens,
+        layer_id,
         position,
         top_k
     );
+    
+    // Convert to layer-expert pairs
+    std::vector<std::pair<int, int>> predictions;
+    for (int expert_id : predicted_experts) {
+        predictions.push_back({layer_id + 1, expert_id}); // Predict next layer
+    }
+    
+    return predictions;
 }
 
 void ggml_moe_prefetch_engine::update_patterns(
