@@ -807,9 +807,21 @@ bool ml_prefetch_engine::save_model() {
         return false;
     }
 
+    // Create a non-atomic stats object for persistence
+    ml_prefetch_stats stats;
+    stats.total_predictions = stats_.total_predictions.load();
+    stats.correct_predictions = stats_.correct_predictions.load();
+    stats.training_samples = stats_.training_samples.load();
+    stats.model_updates = stats_.model_updates.load();
+    stats.persistence_saves = stats_.persistence_saves.load();
+    stats.persistence_loads = stats_.persistence_loads.load();
+    stats.current_accuracy = stats_.current_accuracy.load();
+    stats.average_prediction_time_ms = stats_.average_prediction_time_ms.load();
+    stats.average_learning_time_ms = stats_.average_learning_time_ms.load();
+
     std::string filepath = get_model_filepath();
     bool success = persistence_manager_->save_model(
-        filepath, *predictor_, *pattern_analyzer_, stats_, config_
+        filepath, *predictor_, *pattern_analyzer_, stats, config_
     );
 
     if (success) {
@@ -824,15 +836,29 @@ bool ml_prefetch_engine::load_model() {
         return false;
     }
 
+    // Create a non-atomic stats object for persistence
+    ml_prefetch_stats stats;
+
     std::string filepath = get_model_filepath();
     bool success = persistence_manager_->load_model(
-        filepath, *predictor_, *pattern_analyzer_, stats_, config_
+        filepath, *predictor_, *pattern_analyzer_, stats, config_
     );
 
     if (success) {
+        // Copy loaded stats back to atomic members
+        stats_.total_predictions = stats.total_predictions;
+        stats_.correct_predictions = stats.correct_predictions;
+        stats_.training_samples = stats.training_samples;
+        stats_.model_updates = stats.model_updates;
+        stats_.persistence_saves = stats.persistence_saves;
+        stats_.persistence_loads = stats.persistence_loads;
+        stats_.current_accuracy = stats.current_accuracy;
+        stats_.average_prediction_time_ms = stats.average_prediction_time_ms;
+        stats_.average_learning_time_ms = stats.average_learning_time_ms;
+        
         stats_.persistence_loads++;
         if (learner_) {
-            learner_->training_samples = stats_.training_samples;
+            learner_->training_samples = stats_.training_samples.load();
         }
     }
 
