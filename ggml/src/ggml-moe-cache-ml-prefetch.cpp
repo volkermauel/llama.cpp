@@ -1,16 +1,3 @@
-#include "ggml-moe-cache-ml-prefetch.h"
-#include "ggml-moe-cache.h"
-#include "ggml.h"
-#include <algorithm>
-#include <chrono>
-#include <cmath>
-#include <cstring>
-#include <fstream>
-#include <iomanip>
-#include <random>
-#include <sstream>
-#include <set>
-
 // Platform-specific headers for filesystem utilities
 #ifdef _WIN32
 #define NOMINMAX
@@ -23,6 +10,19 @@
 #include <unistd.h>
 #include <pwd.h>
 #endif
+
+#include "ggml-moe-cache-ml-prefetch.h"
+#include "ggml-moe-cache.h"
+#include "ggml.h"
+#include <algorithm>
+#include <chrono>
+#include <cmath>
+#include <cstring>
+#include <fstream>
+#include <iomanip>
+#include <random>
+#include <sstream>
+#include <set>
 #include <cstdlib>
 
 // Local filesystem utility functions to avoid dependency on common library
@@ -117,13 +117,15 @@ std::string fs_get_cache_directory() {
         return cache_directory;
     }
     
-    // Fallback: try to get home directory from passwd
+    // Fallback: try to get home directory from passwd (not available on all platforms)
+    #if !defined(_WIN32) && !defined(__APPLE__)
     struct passwd* pw = getpwuid(getuid());
     if (pw && pw->pw_dir) {
         cache_directory = pw->pw_dir;
         cache_directory += "/.cache/llama.cpp";
         return cache_directory;
     }
+    #endif
     
     // Last resort: use /tmp
     cache_directory = "/tmp/llama.cpp.cache";
