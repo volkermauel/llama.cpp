@@ -207,7 +207,7 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
         const std::vector<int>& used_experts,
         const std::vector<int>& tokens
     ) {
-        (void)tokens; // Mark as unused for now
+        (void)tokens; // Mark as intentionally unused
         if (!prefetch_engine) return;
         
         // Update recent experts for this layer
