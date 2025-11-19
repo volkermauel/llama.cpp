@@ -6,7 +6,6 @@
 
 // Forward declarations to avoid circular dependency
 struct llama_context_params;
-#define LLAMA_API  // Temporary definition to avoid dependency issues
 
 // MoE cache parameters for command-line configuration
 struct llama_moe_cache_params {

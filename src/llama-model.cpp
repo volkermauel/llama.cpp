@@ -5,6 +5,7 @@
 #include "llama-batch.h"
 #include "llama-cparams.h"
 #include "llama-model-loader.h"
+#include "llama-moe-cache-params.h"
 
 #include "llama-kv-cache.h"
 #include "llama-kv-cache-iswa.h"
@@ -2233,7 +2234,7 @@ void llama_model::load_vocab(llama_model_loader & ml) {
 }
 
 bool llama_model::load_tensors(llama_model_loader & ml) {
-    LLAMA_LOG_INFO("%s: Starting tensor loading with MoE GPU experts limit: %d\n", __func__, params.moe_cache_params.n_gpu_experts);
+    LLAMA_LOG_INFO("%s: Starting tensor loading with MoE GPU experts limit: %d\n", __func__, params.moe_cache_params ? params.moe_cache_params->n_gpu_experts : -1);
     const auto & split_mode   = params.split_mode;
     const auto & n_gpu_layers = params.n_gpu_layers;
     const auto & use_mlock    = params.use_mlock;
@@ -2294,10 +2295,10 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
         if (il < (int) hparams.n_layer && hparams.n_expert > 0) {
             // This is a layer that could contain expert tensors
             // For now, we'll check if n_gpu_experts is set and limit GPU assignment
-            if (params.moe_cache_params.n_gpu_experts >= 0 && params.moe_cache_params.n_gpu_experts < (int)hparams.n_expert) {
+            if (params.moe_cache_params && params.moe_cache_params->n_gpu_experts >= 0 && params.moe_cache_params->n_gpu_experts < (int)hparams.n_expert) {
                 has_expert_tensors = true;
                 LLAMA_LOG_INFO("%s: Layer %d has expert tensors, n_gpu_experts=%d, total_experts=%u\n",
-                    __func__, il, params.moe_cache_params.n_gpu_experts, hparams.n_expert);
+                    __func__, il, params.moe_cache_params->n_gpu_experts, hparams.n_expert);
             }
         }
         
@@ -7455,6 +7456,7 @@ llama_model_params llama_model_default_params() {
         /*.progress_callback           =*/ nullptr,
         /*.progress_callback_user_data =*/ nullptr,
         /*.kv_overrides                =*/ nullptr,
+        /*.moe_cache_params            =*/ nullptr,
         /*.vocab_only                  =*/ false,
         /*.use_mmap                    =*/ true,
         /*.use_mlock                   =*/ false,
