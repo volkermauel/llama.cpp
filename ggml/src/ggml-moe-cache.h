@@ -178,6 +178,9 @@ struct ggml_moe_cache {
     // Cache storage: (layer_id, expert_id) -> GPU buffer mapping
     std::unordered_map<ggml_moe_expert_key, ggml_backend_buffer_t, ggml_moe_expert_key_hash> cache_map;
     
+    // System RAM storage for experts not in GPU cache
+    std::unordered_map<ggml_moe_expert_key, ggml_backend_buffer_t, ggml_moe_expert_key_hash> system_ram_storage;
+    
     // LRU tracking: most recently used at front
     std::list<ggml_moe_expert_key> lru_list;
     std::unordered_map<ggml_moe_expert_key, std::list<ggml_moe_expert_key>::iterator, ggml_moe_expert_key_hash> lru_iter;
@@ -212,6 +215,18 @@ struct ggml_moe_cache {
     
     // Destructor
     ~ggml_moe_cache();
+
+    // LRU management functions
+    void update_lru(const ggml_moe_expert_key& key);
+    void evict_lru();
+    bool is_cache_full() const;
+    size_t get_cache_size() const;
+    size_t get_expert_size(const ggml_moe_expert_key& key) const;
+    
+    // Dynamic streaming functions
+    ggml_backend_buffer_t get_expert_from_system_ram(const ggml_moe_expert_key& key);
+    void stream_expert_to_gpu(const ggml_moe_expert_key& key);
+    bool has_expert_in_system_ram(const ggml_moe_expert_key& key) const;
 };
 
 // Pre-fetch engine for predicting expert usage

@@ -2285,8 +2285,20 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
     if (cpu_dev == nullptr) {
         throw std::runtime_error(format("%s: no CPU backend found", __func__));
     }
-    const int i_gpu_start = std::max((int) hparams.n_layer - n_gpu_layers, (int) 0);
-    const int act_gpu_layers = devices.empty() ? 0 : std::min(n_gpu_layers, (int)n_layer + 1);
+    // Calculate GPU layer range, excluding expert layers when MoE cache is enabled
+    int non_expert_layers = n_gpu_layers;
+    bool moe_expert_limiting_enabled = (params.moe_cache_params &&
+                                       params.moe_cache_params->n_gpu_experts >= 0 &&
+                                       hparams.n_expert > 0);
+    
+    if (moe_expert_limiting_enabled) {
+        // When MoE expert limiting is enabled, -ngl should only count non-expert layers
+        // Expert layers will be managed separately by the MoE cache system
+        LLAMA_LOG_INFO("%s: MoE expert limiting enabled, -ngl will only count non-expert layers\n", __func__);
+    }
+    
+    const int i_gpu_start = std::max((int) hparams.n_layer - non_expert_layers, (int) 0);
+    const int act_gpu_layers = devices.empty() ? 0 : std::min(non_expert_layers, (int)n_layer + 1);
     auto get_layer_buft_list = [&](int il) -> llama_model::impl::layer_dev {
         const bool is_swa = il < (int) hparams.n_layer && hparams.is_swa(il);
         
@@ -2510,10 +2522,20 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
                                         tensor == LLM_TENSOR_FFN_UP_CHEXPS);
                 
                 if (is_expert_tensor && info.layer == LLM_TENSOR_LAYER_REPEATING) {
-                    // Keep expert tensors on GPU - the MoE cache system will handle the limiting
-                    // The actual expert limiting happens during computation, not during tensor loading
-                    LLAMA_LOG_DEBUG("%s: expert tensor %s in layer %d on GPU (will be managed by MoE cache system, n_gpu_experts=%d)\n",
-                                   __func__, tn.str().c_str(), tn.bid, params.moe_cache_params->n_gpu_experts);
+                    // For expert tensors, we need to decide whether to keep them on GPU or CPU
+                    // based on the MoE cache configuration
+                    if (params.moe_cache_params->n_gpu_experts == 0) {
+                        // If n_gpu_experts is 0, keep all experts in system RAM
+                        // They will be streamed to GPU dynamically when needed
+                        buft = ggml_backend_cpu_buffer_type();
+                        LLAMA_LOG_INFO("%s: expert tensor %s in layer %d assigned to CPU (will be streamed to GPU dynamically, n_gpu_experts=%d)\n",
+                                       __func__, tn.str().c_str(), tn.bid, params.moe_cache_params->n_gpu_experts);
+                    } else {
+                        // Keep expert tensors on GPU - the MoE cache system will handle the limiting
+                        // The actual expert limiting happens during computation, not during tensor loading
+                        LLAMA_LOG_INFO("%s: expert tensor %s in layer %d on GPU (will be managed by MoE cache system, n_gpu_experts=%d)\n",
+                                       __func__, tn.str().c_str(), tn.bid, params.moe_cache_params->n_gpu_experts);
+                    }
                 }
             }
 

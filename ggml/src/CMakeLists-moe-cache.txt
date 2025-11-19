@@ -11,6 +11,7 @@ set(GGML_MOE_CACHE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/ggml-moe-cache-integrate.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ggml-moe-cache-backend.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ggml-moe-cache-ml-prefetch.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ggml-moe-cache-lru.cpp
 )
 
 # CUDA-specific files
