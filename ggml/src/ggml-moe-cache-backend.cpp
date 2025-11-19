@@ -192,7 +192,7 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
         // Simple implementation: predict same experts in next layer
         // In a real implementation, this would use historical patterns
         for (int expert_id : current_experts) {
-            if (predictions.size() >= top_k) break;
+            if ((int)predictions.size() >= top_k) break;
             // Predict same expert in next layer (if exists)
             if (layer_id + 1 < num_layers) {
                 predictions.push_back({layer_id + 1, expert_id});
@@ -207,6 +207,7 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
         const std::vector<int>& used_experts,
         const std::vector<int>& tokens
     ) {
+        (void)tokens; // Mark as unused for now
         if (!prefetch_engine) return;
         
         // Update recent experts for this layer
