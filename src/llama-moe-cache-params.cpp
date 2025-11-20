@@ -3,14 +3,16 @@
 #include <cstring>
 
 // Implementation of the C API extensions for MoE cache parameters
+// Note: These functions are declared in the header but should not have LLAMA_API here
+// as they are not part of the main llama.h API
 
-LLAMA_API struct llama_context_params llama_context_default_params_with_moe(void) {
+struct llama_context_params llama_context_default_params_with_moe(void) {
     // Start with default parameters
     struct llama_context_params params = llama_context_default_params();
     return params;
 }
 
-LLAMA_API void llama_context_params_set_moe_cache(struct llama_context_params* params,
+void llama_context_params_set_moe_cache(struct llama_context_params* params,
                                                  const llama_moe_cache_params* moe_params) {
     if (!params || !moe_params) {
         return;  // Handle null pointers gracefully
