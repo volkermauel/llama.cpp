@@ -6,6 +6,8 @@
 #include "llama-hparams.h"
 #include "llama-memory.h"
 #include "llama-vocab.h"
+#include "llama-mmap.h"
+#include "ggml-cpp.h"
 #include "ggml/src/ggml-moe-cache.h"
 
 #include <map>
@@ -532,7 +534,45 @@ struct llama_model {
     bool validate_critical_layers_on_gpu() const;
 
 private:
-    struct impl;
+    // Forward declarations for types used in impl
+    using buft_list_t = std::vector<std::pair<ggml_backend_dev_t, ggml_backend_buffer_type_t>>;
+    
+    struct impl {
+        impl() {}
+        ~impl() {}
+
+        uint64_t n_elements = 0;
+        size_t n_bytes = 0;
+        std::string desc_str;
+
+        // model memory mapped files
+        llama_mmaps mappings;
+
+        // objects representing data potentially being locked in memory
+        llama_mlocks mlock_bufs;
+        llama_mlocks mlock_mmaps;
+
+        // contexts where the model tensors metadata is stored as well ass the corresponding buffers:
+        std::vector<std::pair<ggml_context_ptr, std::vector<ggml_backend_buffer_ptr>>> ctxs_bufs;
+
+        buft_list_t cpu_buft_list;
+        std::map<ggml_backend_dev_t, buft_list_t> gpu_buft_list;
+
+        struct layer_dev {
+            ggml_backend_dev_t dev;
+            buft_list_t * buft_list;
+        };
+
+        layer_dev dev_input = {};
+        layer_dev dev_output = {};
+        std::vector<layer_dev> dev_layer;
+
+        bool has_tensor_overrides;
+        
+        // List of devices used by this model
+        std::vector<ggml_backend_dev_t> devices;
+    };
+    
     std::unique_ptr<impl> pimpl;
 };
 
