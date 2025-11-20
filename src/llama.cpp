@@ -6,9 +6,11 @@
 #include "llama-model-loader.h"
 #include "llama-model-saver.h"
 #include "llama-model.h"
+#include "llama-moe-cache-debug.h"
 
 #include "ggml.h"
 #include "ggml-backend.h"
+#include "ggml-moe-cache.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -412,29 +414,5 @@ const char * llama_print_system_info(void) {
     }
 
     return s.c_str();
-}
-
-// Phase 5: Post-prompt statistics reporting function
-void llama_report_moe_cache_stats(struct llama_context* ctx) {
-    if (!ctx || !ctx->model.moe_cache) {
-        return;
-    }
-    
-    // Get current statistics
-    ggml_moe_cache_stats stats = ggml_moe_cache_get_stats(ctx->model.moe_cache);
-    
-    // Update with context-specific performance metrics
-    stats.tokens_per_second = ctx->tokens_per_second;
-    stats.total_tokens_generated = ctx->generated_tokens;
-    
-    // Report comprehensive statistics
-    llama_moe_log_cache_stats_phase5(ctx->model.moe_cache);
-    
-    // Additional prompt-specific reporting
-    LLAMA_LOG_INFO("=== Prompt Completion Summary ===\n");
-    LLAMA_LOG_INFO("Tokens generated: %d\n", ctx->generated_tokens);
-    LLAMA_LOG_INFO("Average tokens/sec: %.2f\n", ctx->tokens_per_second);
-    LLAMA_LOG_INFO("==================================\n");
-}
 }
 

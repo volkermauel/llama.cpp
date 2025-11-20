@@ -215,7 +215,7 @@ ggml_moe_cache::ggml_moe_cache(
     }
     
     // Initialize statistics
-    memset(&stats, 0, sizeof(stats));
+    stats = ggml_moe_cache_stats{};
 }
 // Destructor implementation
 ggml_moe_cache::~ggml_moe_cache() {

@@ -14,6 +14,7 @@ struct llama_moe_debug_config {
     bool enable_layer_assignment_logging;
     bool enable_expert_lifecycle_logging;
     bool enable_performance_logging;
+    bool enable_warning_logging;
     
     // Constructor with sensible defaults
     llama_moe_debug_config() :
@@ -23,7 +24,8 @@ struct llama_moe_debug_config {
         enable_transfer_logging(false),
         enable_layer_assignment_logging(false),
         enable_expert_lifecycle_logging(false),
-        enable_performance_logging(false) {}
+        enable_performance_logging(false),
+        enable_warning_logging(false) {}
 };
 
 // Debug logging functions

@@ -331,7 +331,7 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
                 size_t expert_size = get_expert_size(expert_source, key.layer_id, key.expert_id);
                 
                 // Log eviction event
-                llama_moe_log_eviction(key.layer_id, key.expert_id, "Cache full - LRU eviction", expert_size);
+                llama_moe_log_eviction(key.layer_id, key.expert_id, "Cache full - LRU eviction");
                 llama_moe_log_expert_lifecycle(key.layer_id, key.expert_id, "Evicting", "Making room for new expert");
                 
                 // Free the GPU buffer
@@ -358,7 +358,7 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
                 
                 // Log transfer operation
                 llama_moe_log_transfer("VRAM->RAM", expert_size,
-                                      format("Expert %s evicted", llama_moe_debug::format_expert_key(key.layer_id, key.expert_id).c_str()).c_str());
+                                      format("Expert %s evicted", llama_moe_format_expert_key(key.layer_id, key.expert_id)).c_str());
             }
         }
     }
@@ -425,7 +425,7 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
         
         // Log transfer operation
         llama_moe_log_transfer("RAM->VRAM", expert_size,
-                              format("Expert %s loaded", llama_moe_debug::format_expert_key(layer_id, expert_id).c_str()).c_str());
+                              format("Expert %s loaded", llama_moe_format_expert_key(layer_id, expert_id)).c_str());
         
         // Log expert lifecycle event
         llama_moe_log_expert_lifecycle(layer_id, expert_id, "Loaded", "Successfully loaded to GPU");
@@ -562,6 +562,7 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
             
             // Log individual expert prefetch
             size_t expert_size = gpu_cache->get_expert_size(expert_tensor, layer_id, expert_id);
+            (void)expert_size; // Mark as intentionally unused
             llama_moe_log_expert_lifecycle(layer_id, expert_id, "Prefetching", "Async prefetch started");
             
             // Load expert asynchronously (this will evict if needed)
@@ -664,7 +665,7 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
             ggml_backend_buffer_t gpu_buffer = gpu_cache->load_expert_async(
                 layer_id,
                 expert_id,
-                expert_source,
+                gpu_cache->expert_source,
                 compute_stream // Using compute_stream as fallback
             );
             
@@ -712,7 +713,7 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
         if (!cache) return;
         
         std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(cache->cache_mutex));
-        memset(&cache->stats, 0, sizeof(cache->stats));
+        cache->stats = ggml_moe_cache_stats{};
     }
     
     void clear_cache(
@@ -975,6 +976,7 @@ GGML_API void ggml_moe_cache_overlap_computation_and_transfer(
     void* compute_stream,
     void* transfer_stream
 ) {
+    (void)compute_stream; // Mark as intentionally unused
     if (!cache || !cache->impl || !expert_ids) return;
     
     std::vector<int> expert_ids_vec(expert_ids, expert_ids + num_experts);

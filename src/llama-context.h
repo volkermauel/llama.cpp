@@ -10,6 +10,7 @@
 
 #include <map>
 #include <vector>
+#include <chrono>
 
 struct llama_model;
 class llama_batch_allocr;
