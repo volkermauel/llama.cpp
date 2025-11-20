@@ -1,6 +1,7 @@
 #include "llama-moe-cache-debug.h"
 #include "llama-impl.h"
 #include "llama.h"
+#include "llama-context.h"
 #include <cstdio>
 #include <cstring>
 #include <ctime>

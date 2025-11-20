@@ -2342,6 +2342,11 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
 
     // assign the input layer (embeddings) - always on GPU for compute-intensive operations
     // Override -ngl setting for embedding layer due to high computational cost
+    ggml_backend_dev_t gpu_dev = ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_GPU);
+    if (!gpu_dev) {
+        LLAMA_LOG_ERROR("%s: No GPU device available for embedding layer\n", __func__);
+        return false;
+    }
     LLAMA_LOG_INFO("%s: Input layer (embeddings) forced to GPU for performance\n", __func__);
     pimpl->dev_input = { gpu_dev, &pimpl->gpu_buft_list };
 }
