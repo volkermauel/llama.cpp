@@ -2379,6 +2379,12 @@ llama_context * llama_init_from_model(
 
     try {
         auto * ctx = new llama_context(*model, params);
+        
+        // Validate that critical layers are on GPU
+        if (!model->validate_critical_layers_on_gpu()) {
+            LLAMA_LOG_WARN("%s: Critical layers validation failed, performance may be degraded\n", __func__);
+        }
+        
         return ctx;
     } catch (const std::exception & err) {
         LLAMA_LOG_ERROR("%s: failed to initialize the context: %s\n", __func__, err.what());
@@ -2762,6 +2768,8 @@ size_t llama_state_seq_load_file(llama_context * ctx, const char * filepath, lla
 int32_t llama_encode(
         llama_context * ctx,
           llama_batch   batch) {
+    // Phase 5: Start prompt processing statistics
+    ctx->start_prompt_processing();
     const int ret = ctx->encode(batch);
     if (ret != 0) {
         LLAMA_LOG_ERROR("%s: failed to encode, ret = %d\n", __func__, ret);
@@ -2776,6 +2784,11 @@ int32_t llama_decode(
     const int ret = ctx->decode(batch);
     if (ret != 0 && ret != 1) {
         LLAMA_LOG_ERROR("%s: failed to decode, ret = %d\n", __func__, ret);
+    }
+    
+    // Phase 5: Record token generation for statistics
+    if (ret >= 0) {
+        ctx->record_token_generation();
     }
 
     return ret;

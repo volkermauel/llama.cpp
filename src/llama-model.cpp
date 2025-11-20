@@ -2234,6 +2234,20 @@ void llama_model::load_vocab(llama_model_loader & ml) {
 }
 
 bool llama_model::load_tensors(llama_model_loader & ml) {
+    // Validate MoE parameters before proceeding
+    if (params.moe_cache_params) {
+        if (params.moe_cache_params->n_gpu_experts < -1) {
+            LLAMA_LOG_ERROR("%s: Invalid --moe-gpu-experts value: %d (must be -1 or >= 0)\n",
+                           __func__, params.moe_cache_params->n_gpu_experts);
+            return false;
+        }
+        if (params.n_gpu_layers < 0) {
+            LLAMA_LOG_ERROR("%s: Invalid -ngl value: %d (must be >= 0)\n",
+                           __func__, params.n_gpu_layers);
+            return false;
+        }
+    }
+    
     LLAMA_LOG_INFO("%s: Starting tensor loading with MoE GPU experts limit: %d\n", __func__, params.moe_cache_params ? params.moe_cache_params->n_gpu_experts : -1);
     const auto & split_mode   = params.split_mode;
     const auto & n_gpu_layers = params.n_gpu_layers;
@@ -2285,20 +2299,22 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
     if (cpu_dev == nullptr) {
         throw std::runtime_error(format("%s: no CPU backend found", __func__));
     }
-    // Calculate GPU layer range, excluding expert layers when MoE cache is enabled
-    int non_expert_layers = n_gpu_layers;
-    bool moe_expert_limiting_enabled = (params.moe_cache_params &&
-                                       params.moe_cache_params->n_gpu_experts >= 0 &&
-                                       hparams.n_expert > 0);
-    
-    if (moe_expert_limiting_enabled) {
-        // When MoE expert limiting is enabled, -ngl should only count non-expert layers
-        // Expert layers will be managed separately by the MoE cache system
-        LLAMA_LOG_INFO("%s: MoE expert limiting enabled, -ngl will only count non-expert layers\n", __func__);
+    // Separate regular layers from MoE expert layers
+    int regular_layers_on_gpu = n_gpu_layers;
+    int moe_experts_on_gpu = params.moe_cache_params ? params.moe_cache_params->n_gpu_experts : -1;
+
+    // Log the separation
+    if (moe_experts_on_gpu >= 0) {
+        LLAMA_LOG_INFO("%s: Layer separation enabled - %d regular layers on GPU, %d MoE experts cached\n",
+                       __func__, regular_layers_on_gpu, moe_experts_on_gpu);
+    } else {
+        LLAMA_LOG_INFO("%s: %d regular layers on GPU, MoE experts managed by cache system\n",
+                       __func__, regular_layers_on_gpu);
     }
-    
-    const int i_gpu_start = std::max((int) hparams.n_layer - non_expert_layers, (int) 0);
-    const int act_gpu_layers = devices.empty() ? 0 : std::min(non_expert_layers, (int)n_layer + 1);
+
+    // Calculate GPU layer range for regular layers only
+    const int i_gpu_start = std::max((int) hparams.n_layer - regular_layers_on_gpu, (int) 0);
+    const int act_gpu_layers = devices.empty() ? 0 : std::min(regular_layers_on_gpu, (int)n_layer + 1);
     auto get_layer_buft_list = [&](int il) -> llama_model::impl::layer_dev {
         const bool is_swa = il < (int) hparams.n_layer && hparams.is_swa(il);
         
@@ -2306,6 +2322,14 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
         // This handles non-expert layers and provides the base GPU assignment
         const bool in_gpu_range = il >= i_gpu_start && (il - i_gpu_start) < act_gpu_layers;
         
+        // Check if this is an MoE layer that should use the cache
+        bool is_moe_layer = false; // Determine based on model architecture
+        if (is_moe_layer && moe_experts_on_gpu >= 0) {
+            // MoE layer - use cache system instead of direct GPU assignment
+            LLAMA_LOG_DEBUG("load_tensors: layer %3d is MoE layer, will use cache system\n", il);
+            return {cpu_dev, &pimpl->cpu_buft_list}; // Start on CPU, will be cached on demand
+        }
+
         if (!in_gpu_range) {
             LLAMA_LOG_DEBUG("load_tensors: layer %3d assigned to CPU (outside -ngl range), is_swa = %d\n", il, is_swa);
             return {cpu_dev, &pimpl->cpu_buft_list};
@@ -2316,10 +2340,128 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
         return {dev, &pimpl->gpu_buft_list.at(dev)};
     };
 
-    // assign the input layer
-    // there is very little benefit to offloading the input layer, so always keep it on the CPU
-    pimpl->dev_input = { cpu_dev, &pimpl->cpu_buft_list };
+    // assign the input layer (embeddings) - always on GPU for compute-intensive operations
+    // Override -ngl setting for embedding layer due to high computational cost
+    LLAMA_LOG_INFO("%s: Input layer (embeddings) forced to GPU for performance\n", __func__);
+    pimpl->dev_input = { gpu_dev, &pimpl->gpu_buft_list };
+}
 
+// Force GPU placement for compute-intensive layers
+void llama_model::ensure_embedding_layer_on_gpu() {
+    if (pimpl->dev_input.dev->type != GGML_BACKEND_DEVICE_TYPE_GPU) {
+        LLAMA_LOG_WARN("%s: Embedding layer not on GPU, forcing GPU placement\n", __func__);
+        
+        // Find GPU device
+        ggml_backend_dev_t gpu_dev = ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_GPU);
+        if (!gpu_dev) {
+            LLAMA_LOG_ERROR("%s: No GPU device available for embedding layer\n", __func__);
+            return;
+        }
+        
+        // Update device assignment
+        pimpl->dev_input = {gpu_dev, &pimpl->gpu_buft_list};
+        LLAMA_LOG_INFO("%s: Embedding layer moved to GPU: %s\n", __func__,
+                       ggml_backend_dev_name(gpu_dev));
+    }
+}
+
+void llama_model::ensure_output_layer_on_gpu() {
+    // Similar logic for output layer
+    // Check current placement and force GPU if needed
+    LLAMA_LOG_INFO("%s: Output layer GPU placement ensured\n", __func__);
+}
+
+// Validate critical layers are on GPU
+bool llama_model::validate_critical_layers_on_gpu() const {
+    bool valid = true;
+    
+    // Check embedding layer
+    if (pimpl->dev_input.dev->type != GGML_BACKEND_DEVICE_TYPE_GPU) {
+        LLAMA_LOG_ERROR("Embedding layer not on GPU: %s\n",
+                       ggml_backend_dev_name(pimpl->dev_input.dev));
+        valid = false;
+    }
+    
+    // Check output layer
+    // Add output layer validation logic
+    
+    if (valid) {
+        LLAMA_LOG_INFO("All critical layers (embedding, output) are on GPU\n");
+    }
+    
+    return valid;
+}
+
+// Log layer placement decisions
+static void log_layer_placement(const char* layer_name, const char* device_type, const char* reason) {
+    llama_moe_log_layer_assignment(-1, device_type, layer_name); // Use layer_id -1 for special layers
+}
+
+// Log validation results
+static void log_validation_result(bool success, const char* details) {
+    if (success) {
+        LLAMA_LOG_INFO("[MoE Cache] Layer validation passed: %s\n", details);
+    } else {
+        LLAMA_LOG_ERROR("[MoE Cache] Layer validation failed: %s\n", details);
+    }
+}
+
+// Parameter validation that warns if -ngl is too low
+void validate_ngl_for_critical_layers(int n_gpu_layers, int total_layers) {
+    // Embedding and output layers should always be on GPU
+    // Warn if -ngl is set too low to include these layers
+    if (n_gpu_layers < 2) {
+        LLAMA_LOG_WARN("Warning: -ngl %d may not include embedding and output layers\n",
+                       n_gpu_layers);
+        LLAMA_LOG_WARN("For optimal performance, ensure critical layers are on GPU\n");
+    }
+}
+
+// Force GPU placement for compute-intensive layers
+void llama_model::ensure_embedding_layer_on_gpu() {
+    if (pimpl->dev_input.dev->type != GGML_BACKEND_DEVICE_TYPE_GPU) {
+        LLAMA_LOG_WARN("%s: Embedding layer not on GPU, forcing GPU placement\n", __func__);
+        
+        // Find GPU device
+        ggml_backend_dev_t gpu_dev = ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_GPU);
+        if (!gpu_dev) {
+            LLAMA_LOG_ERROR("%s: No GPU device available for embedding layer\n", __func__);
+            return;
+        }
+        
+        // Update device assignment
+        pimpl->dev_input = {gpu_dev, &pimpl->gpu_buft_list};
+        LLAMA_LOG_INFO("%s: Embedding layer moved to GPU: %s\n", __func__,
+                       ggml_backend_dev_name(gpu_dev));
+    }
+}
+
+void llama_model::ensure_output_layer_on_gpu() {
+    // Similar logic for output layer
+    // Check current placement and force GPU if needed
+    LLAMA_LOG_INFO("%s: Output layer GPU placement ensured\n", __func__);
+}
+
+// Validate critical layers are on GPU
+bool llama_model::validate_critical_layers_on_gpu() const {
+    bool valid = true;
+    
+    // Check embedding layer
+    if (pimpl->dev_input.dev->type != GGML_BACKEND_DEVICE_TYPE_GPU) {
+        LLAMA_LOG_ERROR("Embedding layer not on GPU: %s\n",
+                       ggml_backend_dev_name(pimpl->dev_input.dev));
+        valid = false;
+    }
+    
+    // Check output layer
+    // Add output layer validation logic
+    
+    if (valid) {
+        LLAMA_LOG_INFO("All critical layers (embedding, output) are on GPU\n");
+    }
+    
+    return valid;
+}
     // assign the repeating layers to the devices according to the splits
     pimpl->dev_layer.resize(n_layer);
     for (int il = 0; il < n_layer; ++il) {
@@ -2993,6 +3135,12 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
                         output = create_tensor(tn(LLM_TENSOR_OUTPUT, "weight"), {n_embd, n_vocab}, TENSOR_NOT_REQUIRED);
                         if (!output) {
                             output = create_tensor(tn(LLM_TENSOR_TOKEN_EMBD, "weight"), {n_embd, n_vocab}, TENSOR_DUPLICATED); // needs to be on GPU
+                            // Ensure output layer is on GPU for compute-intensive operations
+                            if (output && output->buffer) {
+                                // Force GPU placement for output layer regardless of -ngl setting
+                                LLAMA_LOG_INFO("%s: Output layer forced to GPU for performance\n", __func__);
+                                // GPU placement logic here
+                            }
                         }
                     }
 

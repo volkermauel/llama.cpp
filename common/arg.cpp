@@ -3306,5 +3306,15 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
         }
     ).set_env("LLAMA_ARG_MOE_ML_ACCURACY_THRESHOLD"));
 
+    // Phase 5: Statistics and monitoring
+    add_opt(common_arg(
+        {"--moe-stats"},
+        "enable MoE cache statistics collection and reporting",
+        [](common_params & params) {
+            params.moe_cache_params.enable_stats = true;
+            LLAMA_LOG_INFO("MoE cache statistics enabled\n");
+        }
+    ));
+
     return ctx_arg;
 }

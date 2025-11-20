@@ -309,4 +309,34 @@ private:
     mutable int32_t n_eval   = 0; // number of eval calls
 
     mutable int32_t n_reused = 0; // number of times the previous graph was reused
+
+    // Phase 5: Statistics tracking for MoE cache monitoring
+    int generated_tokens = 0;                    // Total tokens generated in current prompt
+    double tokens_per_second = 0.0;              // Average tokens per second
+    std::chrono::steady_clock::time_point prompt_start_time; // Start time of current prompt
+
+    // Statistics tracking methods
+    void start_prompt_processing() {
+        prompt_start_time = std::chrono::steady_clock::now();
+        generated_tokens = 0;
+    }
+    
+    void record_token_generation() {
+        generated_tokens++;
+        
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+            now - prompt_start_time).count();
+        
+        if (elapsed_ms > 0) {
+            tokens_per_second = (generated_tokens * 1000.0) / elapsed_ms;
+        }
+    }
+    
+    void end_prompt_processing() {
+        // Report statistics if MoE cache is active
+        if (model.moe_cache && model.moe_cache->config.enable_stats) {
+            llama_report_moe_cache_stats(this);
+        }
+    }
 };

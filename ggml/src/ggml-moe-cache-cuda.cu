@@ -1,6 +1,7 @@
 #include "ggml-moe-cache.h"
 #include "ggml-cuda/common.cuh"
 #include "ggml-backend-impl.h"
+#include "llama-moe-cache-debug.h"
 #include <cuda_runtime.h>
 #include <algorithm>
 #include <queue>
@@ -144,7 +145,6 @@ struct ggml_moe_cache_cuda : public ggml_moe_cache {
             lru_list.pop_back();
         }
     }
-    
     // Load expert from CPU to GPU memory
     ggml_backend_buffer_t load_expert_async(
         int expert_id,
@@ -155,11 +155,15 @@ struct ggml_moe_cache_cuda : public ggml_moe_cache {
         size_t expert_size = get_expert_size(expert_tensor, expert_id);
         size_t expert_offset = expert_id * expert_size;
         
+        // Log async operation start
+        llama_moe_log_expert_lifecycle(-1, expert_id, "Async Load", "Starting async expert loading");
+        
         // Evict experts if necessary
         evict_experts(expert_size);
         
         // Check if we have enough space after eviction
         if (stats.current_size + expert_size > config.max_cache_size) {
+            llama_moe_log_error(-1, expert_id, "Not enough space even after eviction", -1);
             return nullptr;  // Not enough space even after eviction
         }
         
@@ -168,15 +172,25 @@ struct ggml_moe_cache_cuda : public ggml_moe_cache {
         ggml_backend_buffer_t gpu_buffer = ggml_backend_buft_alloc_buffer(buft, expert_size);
         
         if (!gpu_buffer) {
+            llama_moe_log_error(-1, expert_id, "Failed to allocate GPU buffer", -2);
             return nullptr;
         }
         
         // Get pinned buffer for async transfer
         void* pinned_buffer = acquire_pinned_buffer(expert_size);
         
+        if (!pinned_buffer) {
+            ggml_backend_buffer_free(gpu_buffer);
+            llama_moe_log_error(-1, expert_id, "Failed to acquire pinned buffer", -3);
+            return nullptr;
+        }
+        
         // Copy expert data to pinned buffer first
         const char* cpu_data = (const char*)expert_tensor->data + expert_offset;
         memcpy(pinned_buffer, cpu_data, expert_size);
+        
+        // Log transfer start
+        llama_moe_log_transfer("RAM->VRAM", expert_size, "Starting async transfer");
         
         // Initiate async transfer from pinned buffer to GPU
         char* gpu_data = (char*)ggml_backend_buffer_get_base(gpu_buffer);
@@ -195,8 +209,15 @@ struct ggml_moe_cache_cuda : public ggml_moe_cache {
         // Update cache statistics
         stats.current_size += expert_size;
         stats.peak_size = std::max(stats.peak_size, stats.current_size);
+        stats.total_transfers_ram_to_vram++;
+        stats.async_operations_completed++;
+        
+        // Log transfer completion
+        llama_moe_log_transfer("RAM->VRAM", expert_size, "Async transfer completed");
+        llama_moe_log_expert_lifecycle(-1, expert_id, "Async Load", "Expert successfully loaded to GPU");
         
         return gpu_buffer;
+    }
     }
 };
 
@@ -213,7 +234,6 @@ struct ggml_moe_cache_interface_cuda : public ggml_moe_cache_interface {
         
         return new ggml_moe_cache_cuda(backend, *config, num_experts, this);
     }
-    
     ggml_backend_buffer_t get_expert_async(
         ggml_moe_cache* cache,
         int expert_id,
@@ -246,11 +266,17 @@ struct ggml_moe_cache_interface_cuda : public ggml_moe_cache_interface {
             cache->lru_list.push_front(expert_id);
             cache->lru_iter[expert_id] = cache->lru_list.begin();
             
+            // Log cache hit
+            llama_moe_log_expert_lifecycle(-1, expert_id, "Cache Hit", "Expert found in cache");
+            
             return it->second;
         }
         
         // Cache miss - need to load expert
         cache->stats.cache_misses++;
+        
+        // Log cache miss
+        llama_moe_log_expert_lifecycle(-1, expert_id, "Cache Miss", "Loading expert from RAM");
         
         // Load expert asynchronously
         ggml_backend_buffer_t gpu_buffer = cuda_cache->load_expert_async(
@@ -265,9 +291,16 @@ struct ggml_moe_cache_interface_cuda : public ggml_moe_cache_interface {
             cache->lru_list.push_front(expert_id);
             cache->lru_iter[expert_id] = cache->lru_list.begin();
             cache->expert_stats[expert_id].is_cached = true;
+            
+            // Log successful load
+            llama_moe_log_expert_lifecycle(-1, expert_id, "Loaded", "Expert successfully loaded to GPU");
+        } else {
+            // Log load failure
+            llama_moe_log_error(-1, expert_id, "Failed to load expert", -1);
         }
         
         return gpu_buffer;
+    }
     }
     
     void prefetch_experts_async(
@@ -283,12 +316,19 @@ struct ggml_moe_cache_interface_cuda : public ggml_moe_cache_interface {
         ggml_moe_cache_cuda* cuda_cache = static_cast<ggml_moe_cache_cuda*>(cache);
         cudaStream_t compute_stream = static_cast<cudaStream_t>(stream);
         
+        // Log prefetch operation
+        llama_moe_log_prefetch(-1, -1, expert_ids.size(), "RAM", "VRAM");
+        
         // Start async prefetch for each expert
         for (int expert_id : expert_ids) {
             // Skip if already cached
             if (cache->cache_map.find(expert_id) != cache->cache_map.end()) {
                 continue;
             }
+            
+            // Log individual expert prefetch
+            size_t expert_size = cuda_cache->get_expert_size(expert_tensor, expert_id);
+            llama_moe_log_expert_lifecycle(-1, expert_id, "Prefetching", "Async prefetch started");
             
             // Load expert asynchronously (this will evict if needed)
             ggml_backend_buffer_t gpu_buffer = cuda_cache->load_expert_async(
@@ -304,6 +344,12 @@ struct ggml_moe_cache_interface_cuda : public ggml_moe_cache_interface {
                 cache->lru_iter[expert_id] = cache->lru_list.begin();
                 cache->expert_stats[expert_id].is_cached = true;
                 cache->stats.prefetches++;
+                
+                // Log successful prefetch
+                llama_moe_log_expert_lifecycle(-1, expert_id, "Prefetched", "Successfully loaded to cache");
+            } else {
+                // Log prefetch failure
+                llama_moe_log_warning(-1, expert_id, "Prefetch failed - could not load expert");
             }
         }
     }
@@ -334,6 +380,9 @@ struct ggml_moe_cache_interface_cuda : public ggml_moe_cache_interface {
         if (cache->stats.total_requests > 0) {
             cache->stats.hit_rate = (double)cache->stats.cache_hits / cache->stats.total_requests;
         }
+        
+        // Log touch operation
+        llama_moe_log_expert_lifecycle(-1, expert_id, "Touch", "Updating LRU and access statistics");
     }
     
     ggml_moe_cache_stats get_stats(
@@ -354,6 +403,9 @@ struct ggml_moe_cache_interface_cuda : public ggml_moe_cache_interface {
         }
         
         stats.current_size = cache->stats.current_size;
+        
+        // Log statistics retrieval
+        llama_moe_log_cache_stats(cache);
         
         return stats;
     }

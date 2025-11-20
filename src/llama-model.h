@@ -525,6 +525,11 @@ struct llama_model {
     // TODO: move this to new llm_arch_model_i interface
     ggml_cgraph * build_graph(const llm_graph_params & params) const;
 
+    // Force GPU placement for compute-intensive layers
+    void ensure_embedding_layer_on_gpu();
+    void ensure_output_layer_on_gpu();
+    bool validate_critical_layers_on_gpu() const;
+
 private:
     struct impl;
     std::unique_ptr<impl> pimpl;

@@ -71,6 +71,41 @@ struct ggml_moe_cache_stats {
     size_t current_size;             // Current cache size (bytes)
     size_t peak_size;                // Peak cache size (bytes)
     double avg_load_time;            // Average expert load time (ms)
+    
+    // Enhanced statistics for Phase 1 debug logging
+    uint64_t total_transfers_ram_to_vram;    // Total transfers from RAM to VRAM
+    uint64_t total_transfers_vram_to_ram;    // Total transfers from VRAM to RAM
+    uint64_t total_transfers_gpu_to_gpu;     // Total transfers between GPU devices
+    double avg_transfer_time_ms;             // Average transfer time in milliseconds
+    size_t peak_vram_usage;                  // Peak VRAM usage in bytes
+    
+    // Phase 3: CPU involvement optimization statistics
+    uint64_t async_operations_completed;     // Number of async operations completed
+    uint64_t gpu_to_gpu_transfers_attempted; // Number of GPU-to-GPU transfer attempts
+    uint64_t gpu_to_gpu_transfers_successful; // Number of successful GPU-to-GPU transfers
+    uint64_t pinned_memory_allocations;      // Number of pinned memory allocations
+    double avg_async_completion_time_ms;     // Average async operation completion time
+    double cpu_involvement_reduction_percent; // CPU involvement reduction percentage
+    
+    // Phase 5: Enhanced metrics for comprehensive monitoring
+    size_t pinned_memory_used;               // Pinned memory currently in use (bytes)
+    double tokens_per_second;                // Token generation rate
+    double inference_latency_ms;             // Average inference latency
+    uint64_t total_tokens_generated;         // Total tokens generated in current session
+    
+    // Constructor to initialize all fields
+    ggml_moe_cache_stats() : total_requests(0), cache_hits(0), cache_misses(0),
+                           evictions(0), prefetches(0), prefetch_hits(0),
+                           hit_rate(0.0), prefetch_accuracy(0.0), current_size(0),
+                           peak_size(0), avg_load_time(0.0),
+                           total_transfers_ram_to_vram(0), total_transfers_vram_to_ram(0),
+                           total_transfers_gpu_to_gpu(0), avg_transfer_time_ms(0.0),
+                           peak_vram_usage(0), async_operations_completed(0),
+                           gpu_to_gpu_transfers_attempted(0), gpu_to_gpu_transfers_successful(0),
+                           pinned_memory_allocations(0), avg_async_completion_time_ms(0.0),
+                           cpu_involvement_reduction_percent(0.0), pinned_memory_used(0),
+                           tokens_per_second(0.0), inference_latency_ms(0.0),
+                           total_tokens_generated(0) {}
 };
 
 // Expert usage statistics
@@ -356,6 +391,53 @@ GGML_API void ggml_mul_mat_id_cached(
 // Get cache interface for backend
 GGML_API ggml_moe_cache_interface* ggml_moe_cache_get_interface(
     ggml_backend_t backend
+);
+
+// Phase 3: Async operation declarations for CPU involvement optimization
+GGML_API ggml_backend_buffer_t ggml_moe_cache_get_expert_async(
+    ggml_moe_cache* cache,
+    int layer_id,
+    int expert_id,
+    const ggml_tensor* expert_tensor,
+    void* stream
+);
+
+GGML_API void ggml_moe_cache_prefetch_async(
+    ggml_moe_cache* cache,
+    int layer_id,
+    const int* expert_ids,
+    int num_experts,
+    const ggml_tensor* expert_tensor,
+    void* stream
+);
+
+// Helper functions for transfer optimization
+GGML_API bool ggml_moe_cache_try_gpu_to_gpu_transfer(
+    ggml_moe_cache* cache,
+    int src_layer_id,
+    int dst_layer_id,
+    int expert_id,
+    void* stream
+);
+
+GGML_API ggml_backend_buffer_t ggml_moe_cache_allocate_pinned_buffer(
+    ggml_moe_cache* cache,
+    size_t size
+);
+
+GGML_API void ggml_moe_cache_release_pinned_buffer(
+    ggml_moe_cache* cache,
+    void* buffer
+);
+
+// Stream overlap function
+GGML_API void ggml_moe_cache_overlap_computation_and_transfer(
+    ggml_moe_cache* cache,
+    int layer_id,
+    const int* expert_ids,
+    int num_experts,
+    void* compute_stream,
+    void* transfer_stream
 );
 
 #ifdef __cplusplus

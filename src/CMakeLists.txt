@@ -30,6 +30,7 @@ add_library(llama
             llama-model-saver.cpp
             llama-model.cpp
             llama-moe-cache-params.cpp
+            llama-moe-cache-debug.cpp
             llama-quant.cpp
             llama-sampling.cpp
             llama-vocab.cpp

@@ -1154,6 +1154,11 @@ struct llama_model_params common_model_params_to_llama(common_params & params) {
     if (params.n_gpu_layers != -1) {
         mparams.n_gpu_layers = params.n_gpu_layers;
     }
+    
+    // Sync n_gpu_experts from common_params to moe_cache_params if explicitly set
+    if (params.n_gpu_experts != -1) {
+        params.moe_cache_params.n_gpu_experts = params.n_gpu_experts;
+    }
 
     mparams.main_gpu        = params.main_gpu;
     mparams.split_mode      = params.split_mode;
