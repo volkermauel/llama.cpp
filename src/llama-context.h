@@ -4,6 +4,7 @@
 #include "llama-cparams.h"
 #include "llama-graph.h"
 #include "llama-adapter.h"
+#include "llama-model.h"
 
 #include "ggml-cpp.h"
 #include "ggml-opt.h"
@@ -316,6 +317,7 @@ private:
     double tokens_per_second = 0.0;              // Average tokens per second
     std::chrono::steady_clock::time_point prompt_start_time; // Start time of current prompt
 
+public:
     // Statistics tracking methods
     void start_prompt_processing() {
         prompt_start_time = std::chrono::steady_clock::now();
@@ -334,10 +336,7 @@ private:
         }
     }
     
-    void end_prompt_processing() {
-        // Report statistics if MoE cache is active
-        if (model.moe_cache && model.moe_cache->config.enable_stats) {
-            llama_report_moe_cache_stats(this);
-        }
-    }
+    void end_prompt_processing();
+
+private:
 };

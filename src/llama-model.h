@@ -6,6 +6,7 @@
 #include "llama-hparams.h"
 #include "llama-memory.h"
 #include "llama-vocab.h"
+#include "ggml/src/ggml-moe-cache.h"
 
 #include <map>
 #include <memory>

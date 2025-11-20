@@ -6,6 +6,15 @@
 #include "llama-memory.h"
 #include "llama-mmap.h"
 #include "llama-model.h"
+#include "llama-moe-cache-debug.h"
+
+// Implementation of end_prompt_processing method
+void llama_context::end_prompt_processing() {
+    // Report statistics if MoE cache is active
+    if (model.moe_cache && model.moe_cache->config.enable_stats) {
+        llama_report_moe_cache_stats(this);
+    }
+}
 
 #include <cinttypes>
 #include <cstring>
