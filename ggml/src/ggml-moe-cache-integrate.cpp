@@ -232,7 +232,8 @@ void ggml_moe_cache_log_stats(const ggml_moe_cache* cache) {
         return;
     }
     
-    ggml_moe_cache_stats stats = cache->impl->get_stats(cache);
+    ggml_moe_cache_stats stats;
+    cache->impl->get_stats(cache, &stats);
     
     // Log cache statistics
     printf("MoE Cache Statistics:\n");

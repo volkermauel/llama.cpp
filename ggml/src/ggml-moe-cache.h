@@ -180,8 +180,9 @@ struct ggml_moe_cache_interface {
     ) = 0;
     
     // Get cache statistics
-    virtual ggml_moe_cache_stats get_stats(
-        const ggml_moe_cache* cache
+    virtual void get_stats(
+        const ggml_moe_cache* cache,
+        ggml_moe_cache_stats* stats
     ) = 0;
     
     // Reset cache statistics
@@ -353,8 +354,9 @@ GGML_API void ggml_moe_cache_touch(
     int expert_id
 );
 
-GGML_API ggml_moe_cache_stats ggml_moe_cache_get_stats(
-    const ggml_moe_cache* cache
+GGML_API void ggml_moe_cache_get_stats(
+    const ggml_moe_cache* cache,
+    ggml_moe_cache_stats* stats
 );
 
 GGML_API void ggml_moe_cache_reset_stats(

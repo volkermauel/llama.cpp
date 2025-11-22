@@ -574,6 +574,9 @@ private:
     };
     
     std::unique_ptr<impl> pimpl;
+    
+    // Friend functions for internal access
+    friend const std::vector<std::pair<std::string, ggml_tensor *>> & llama_internal_get_tensor_map(const llama_model * model);
 };
 
 const char * llm_type_name(llm_type type);
