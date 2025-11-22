@@ -442,39 +442,36 @@ struct ggml_moe_cache_interface_concurrent : public ggml_moe_cache_interface {
         concurrent_cache->stats.total_requests.fetch_add(1, std::memory_order_relaxed);
     }
     
-    ggml_moe_cache_stats get_stats(
-        const ggml_moe_cache* cache
+    void get_stats(
+        const ggml_moe_cache* cache,
+        ggml_moe_cache_stats* stats
     ) override {
-        if (!cache) return ggml_moe_cache_stats{};
+        if (!cache || !stats) return;
         
-        const ggml_moe_cache_concurrent* concurrent_cache = 
+        const ggml_moe_cache_concurrent* concurrent_cache =
             static_cast<const ggml_moe_cache_concurrent*>(cache);
         
-        ggml_moe_cache_stats stats = {};
-        
         // Copy atomic statistics
-        stats.total_requests = concurrent_cache->stats.total_requests.load(std::memory_order_relaxed);
-        stats.cache_hits = concurrent_cache->stats.cache_hits.load(std::memory_order_relaxed);
-        stats.cache_misses = concurrent_cache->stats.cache_misses.load(std::memory_order_relaxed);
-        stats.evictions = concurrent_cache->stats.evictions.load(std::memory_order_relaxed);
-        stats.prefetches = concurrent_cache->stats.prefetches.load(std::memory_order_relaxed);
-        stats.current_size = concurrent_cache->stats.current_size;
-        stats.peak_size = concurrent_cache->stats.peak_size;
+        stats->total_requests = concurrent_cache->stats.total_requests.load(std::memory_order_relaxed);
+        stats->cache_hits = concurrent_cache->stats.cache_hits.load(std::memory_order_relaxed);
+        stats->cache_misses = concurrent_cache->stats.cache_misses.load(std::memory_order_relaxed);
+        stats->evictions = concurrent_cache->stats.evictions.load(std::memory_order_relaxed);
+        stats->prefetches = concurrent_cache->stats.prefetches.load(std::memory_order_relaxed);
+        stats->current_size = concurrent_cache->stats.current_size;
+        stats->peak_size = concurrent_cache->stats.peak_size;
         
         // Calculate derived statistics
-        if (stats.total_requests > 0) {
-            stats.hit_rate = static_cast<double>(stats.cache_hits) / stats.total_requests;
+        if (stats->total_requests > 0) {
+            stats->hit_rate = static_cast<double>(stats->cache_hits) / stats->total_requests;
         }
         
-        if (stats.prefetches > 0) {
+        if (stats->prefetches > 0) {
             // Note: prefetch_hits would need additional tracking
-            stats.prefetch_accuracy = 0.0;
+            stats->prefetch_accuracy = 0.0;
         }
         
         // Add lock-free statistics
-        stats.avg_load_time = concurrent_cache->shard_locks.average_wait_time_ns() / 1e6;  // Convert to ms
-        
-        return stats;
+        stats->avg_load_time = concurrent_cache->shard_locks.average_wait_time_ns() / 1e6;  // Convert to ms
     }
     
     void reset_stats(

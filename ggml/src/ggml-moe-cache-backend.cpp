@@ -870,7 +870,7 @@ GGML_API void ggml_moe_cache_get_stats(
     ggml_moe_cache_stats* stats
 ) {
     if (!cache || !cache->impl || !stats) return;
-    *stats = cache->impl->get_stats(cache);
+    cache->impl->get_stats(cache, stats);
 }
 
 GGML_API void ggml_moe_cache_reset_stats(
