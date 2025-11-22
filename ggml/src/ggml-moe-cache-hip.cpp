@@ -333,26 +333,25 @@ struct ggml_moe_cache_interface_hip : public ggml_moe_cache_interface {
         }
     }
     
-    ggml_moe_cache_stats get_stats(
-        const ggml_moe_cache* cache
+    void get_stats(
+        const ggml_moe_cache* cache,
+        ggml_moe_cache_stats* stats
     ) override {
-        if (!cache) return ggml_moe_cache_stats{};
+        if (!cache || !stats) return;
         
         std::lock_guard<std::mutex> lock(cache->cache_mutex);
-        ggml_moe_cache_stats stats = cache->stats;
+        *stats = cache->stats;
         
         // Calculate derived statistics
-        if (stats.total_requests > 0) {
-            stats.hit_rate = (double)stats.cache_hits / stats.total_requests;
+        if (stats->total_requests > 0) {
+            stats->hit_rate = (double)stats->cache_hits / stats->total_requests;
         }
         
-        if (stats.prefetches > 0) {
-            stats.prefetch_accuracy = (double)stats.prefetch_hits / stats.prefetches;
+        if (stats->prefetches > 0) {
+            stats->prefetch_accuracy = (double)stats->prefetch_hits / stats->prefetches;
         }
         
-        stats.current_size = cache->stats.current_size;
-        
-        return stats;
+        stats->current_size = cache->stats.current_size;
     }
     
     void reset_stats(
