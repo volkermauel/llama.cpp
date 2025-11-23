@@ -7617,7 +7617,7 @@ ggml_cgraph * llama_model::build_graph(const llm_graph_params & params) const {
 // interface implementation
 //
 
-llama_model_params llama_model_default_params() {
+LLAMA_API struct llama_model_params llama_model_default_params() {
     llama_model_params result = {
         /*.devices                     =*/ nullptr,
         /*.tensor_buft_overrides       =*/ nullptr,
@@ -7640,23 +7640,23 @@ llama_model_params llama_model_default_params() {
     return result;
 }
 
-const llama_vocab * llama_model_get_vocab(const llama_model * model) {
+LLAMA_API const struct llama_vocab * llama_model_get_vocab(const struct llama_model * model) {
     return &model->vocab;
 }
 
-void llama_free_model(llama_model * model) {
+LLAMA_API void llama_free_model(struct llama_model * model) {
     llama_model_free(model);
 }
 
-void llama_model_free(llama_model * model) {
+LLAMA_API void llama_model_free(struct llama_model * model) {
     delete model;
 }
 
-int32_t llama_model_n_ctx_train(const llama_model * model) {
+LLAMA_API int32_t llama_model_n_ctx_train(const llama_model * model) {
     return model->hparams.n_ctx_train;
 }
 
-int32_t llama_model_n_embd(const llama_model * model) {
+LLAMA_API int32_t llama_model_n_embd(const struct llama_model * model) {
     return model->hparams.n_embd;
 }
 
@@ -7668,23 +7668,23 @@ LLAMA_API int32_t llama_model_n_layer(const struct llama_model * model) {
     return model->hparams.n_layer;
 }
 
-int32_t llama_model_n_head(const llama_model * model) {
+LLAMA_API int32_t llama_model_n_head(const llama_model * model) {
     return model->hparams.n_head();
 }
 
-int32_t llama_model_n_head_kv(const llama_model * model) {
+LLAMA_API int32_t llama_model_n_head_kv(const llama_model * model) {
     return model->hparams.n_head_kv();
 }
 
-int32_t llama_model_n_swa(const llama_model * model) {
+LLAMA_API int32_t llama_model_n_swa(const struct llama_model * model) {
     return model->hparams.n_swa;
 }
 
-uint32_t llama_model_n_cls_out(const struct llama_model * model) {
+LLAMA_API uint32_t llama_model_n_cls_out(const struct llama_model * model) {
     return model->hparams.n_cls_out;
 }
 
-const char * llama_model_cls_label(const struct llama_model * model, uint32_t i) {
+LLAMA_API const char * llama_model_cls_label(const struct llama_model * model, uint32_t i) {
     if (i < model->classifier_labels.size()) {
         return model->classifier_labels[i].c_str();
     }
@@ -7693,26 +7693,29 @@ const char * llama_model_cls_label(const struct llama_model * model, uint32_t i)
 }
 
 // deprecated
-int32_t llama_n_ctx_train(const llama_model * model) {
+LLAMA_API int32_t llama_n_ctx_train(const struct llama_model * model) {
     return llama_model_n_ctx_train(model);
 }
 
 // deprecated
-int32_t llama_n_embd(const llama_model * model) {
+LLAMA_API int32_t llama_n_embd(const struct llama_model * model) {
     return llama_model_n_embd(model);
 }
 
-// deprecated
-int32_t llama_n_layer(const llama_model * model) {
+LLAMA_API int32_t llama_n_layer(const struct llama_model * model) {
     return llama_model_n_layer(model);
 }
 
-// deprecated
-int32_t llama_n_head(const llama_model * model) {
+LLAMA_API int32_t llama_n_head(const struct llama_model * model) {
     return llama_model_n_head(model);
 }
 
-llama_rope_type llama_model_rope_type(const llama_model * model) {
+LLAMA_API int32_t llama_n_head_kv(const struct llama_model * model) {
+    return llama_model_n_head_kv(model);
+}
+
+LLAMA_API enum llama_rope_type llama_model_rope_type(const struct llama_model * model) {
+    if (!model) return LLAMA_ROPE_TYPE_NONE;
     switch (model->arch) {
         // these models do not use RoPE
         case LLM_ARCH_CLIP:
