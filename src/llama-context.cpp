@@ -1404,7 +1404,7 @@ llm_graph_result * llama_context::get_gf_res_reserve() const {
 
 // Suppress -Wsuggest-attribute=noreturn warning for this function
 // The function contains GGML_ASSERT which may abort, but it normally returns
-#ifdef __GNUC__
+#if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wsuggest-attribute=noreturn"
 #endif
@@ -1455,7 +1455,7 @@ ggml_cgraph * llama_context::graph_reserve(uint32_t n_tokens, uint32_t n_seqs, u
     return gf;
 }
 
-#ifdef __GNUC__
+#if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
 
