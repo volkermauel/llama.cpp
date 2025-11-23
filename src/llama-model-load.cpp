@@ -159,8 +159,7 @@ void llama_model::load_hparams(llama_model_loader & ml) {
 
     std::string rope_scaling("linear");
     ml.get_key(LLM_KV_ROPE_SCALING_TYPE, rope_scaling, false);
-    // Use the function from llama-model-base.cpp
-    extern llama_rope_scaling_type llama_rope_scaling_type_from_string(const std::string & name);
+    // Use the function from llama-arch.cpp
     hparams.rope_scaling_type_train = llama_rope_scaling_type_from_string(rope_scaling);
     GGML_ASSERT(hparams.rope_scaling_type_train != LLAMA_ROPE_SCALING_TYPE_UNSPECIFIED);
 

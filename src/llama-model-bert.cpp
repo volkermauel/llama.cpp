@@ -25,8 +25,8 @@
 // Forward declarations
 static const char * llm_type_name(llm_type type);
 static const char * llama_expert_gating_func_name(llama_expert_gating_func_type type);
-static std::string llama_rope_scaling_type_name(llama_rope_scaling_type rope_scaling_type);
-static llama_rope_scaling_type llama_rope_scaling_type_from_string(const std::string & name);
+// llama_rope_scaling_type_name is now defined in llama-arch.cpp
+// llama_rope_scaling_type_from_string is now defined in llama-arch.cpp
 const char * llama_arch_name(llm_arch arch);
 
 // BERT architecture hyperparameter loading

@@ -142,26 +142,9 @@ static const char * llama_expert_gating_func_name(llama_expert_gating_func_type 
     }
 }
 
-static const std::map<llama_rope_scaling_type, const char *> LLAMA_ROPE_SCALING_TYPES = {
-    { LLAMA_ROPE_SCALING_TYPE_NONE,       "none"       },
-    { LLAMA_ROPE_SCALING_TYPE_LINEAR,     "linear"     },
-    { LLAMA_ROPE_SCALING_TYPE_YARN,       "yarn"       },
-    { LLAMA_ROPE_SCALING_TYPE_LONGROPE,   "longrope"   },
-};
-
-std::string llama_rope_scaling_type_name(llama_rope_scaling_type rope_scaling_type) {
-    return LLAMA_ROPE_SCALING_TYPES.at(rope_scaling_type);
-}
-
-static llama_rope_scaling_type llama_rope_scaling_type_from_string(const std::string & name) {
-    for (const auto & kv : LLAMA_ROPE_SCALING_TYPES) {
-        if (kv.second == name) {
-            return (llama_rope_scaling_type) kv.first;
-        }
-    }
-
-    return LLAMA_ROPE_SCALING_TYPE_UNSPECIFIED;
-}
+// LLAMA_ROPE_SCALING_TYPES is now defined in llama-arch.cpp
+// llama_rope_scaling_type_name is now defined in llama-arch.cpp
+// llama_rope_scaling_type_from_string is now defined in llama-arch.cpp
 
 // checks if the weight tensor can be used with the specified buffer type and device
 static bool weight_buft_supported(const llama_hparams & hparams, ggml_tensor * w, ggml_op op, ggml_backend_buffer_type_t buft, ggml_backend_dev_t dev) {
