@@ -29,7 +29,11 @@ add_library(llama
             llama-model-loader.cpp
             llama-model-saver.cpp
             llama-model-load.cpp
+            llama-model.cpp
             llama-model-base.cpp
+            llama-model-bert.cpp
+            llama-model-moe.cpp
+            llama-model-specialized.cpp
             llama-model-layers.cpp
             llama-model-utils.cpp
             llama-model-impl.cpp
