@@ -2,8 +2,7 @@
 #include "ggml-backend.h"
 #include "ggml-backend-impl.h"
 #include "ggml.h"
-#include "llama-moe-cache-debug.h"
-#include "llama-impl.h"
+#include "ggml-moe-cache-debug.h"
 #include <cstring>
 
 // Backend detection functions (simplified versions)

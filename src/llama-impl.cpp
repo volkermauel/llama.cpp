@@ -79,20 +79,8 @@ void replace_all(std::string & s, const std::string & search, const std::string 
     s = std::move(builder);
 }
 
-std::string format(const char * fmt, ...) {
-    va_list ap;
-    va_list ap2;
-    va_start(ap, fmt);
-    va_copy(ap2, ap);
-    int size = vsnprintf(NULL, 0, fmt, ap);
-    GGML_ASSERT(size >= 0 && size < INT_MAX); // NOLINT
-    std::vector<char> buf(size + 1);
-    int size2 = vsnprintf(buf.data(), size + 1, fmt, ap2);
-    GGML_ASSERT(size2 == size);
-    va_end(ap2);
-    va_end(ap);
-    return std::string(buf.data(), size);
-}
+// format function moved to ggml library to avoid circular dependencies
+// Use ggml_format instead - defined in llama-impl.h
 
 std::string llama_format_tensor_shape(const std::vector<int64_t> & ne) {
     char buf[256];

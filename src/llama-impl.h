@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ggml.h" // for ggml_log_level
+#include "ggml/src/ggml-moe-cache-debug.h" // for ggml_format
 
 #include <string>
 #include <vector>
@@ -51,9 +52,8 @@ struct time_meas {
 
 void replace_all(std::string & s, const std::string & search, const std::string & replace);
 
-// TODO: rename to llama_format ?
-LLAMA_ATTRIBUTE_FORMAT(1, 2)
-std::string format(const char * fmt, ...);
+// Use ggml_format from ggml library to avoid circular dependencies
+#define format ggml_format
 
 std::string llama_format_tensor_shape(const std::vector<int64_t> & ne);
 std::string llama_format_tensor_shape(const struct ggml_tensor * t);

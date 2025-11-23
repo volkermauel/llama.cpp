@@ -216,7 +216,7 @@ std::string llama_rope_scaling_type_name(llama_rope_scaling_type rope_scaling_ty
     return LLAMA_ROPE_SCALING_TYPES.at(rope_scaling_type);
 }
 
-llama_rope_scaling_type llama_rope_scaling_type_from_string(const std::string & name) {
+static llama_rope_scaling_type llama_rope_scaling_type_from_string(const std::string & name) {
     for (const auto & kv : LLAMA_ROPE_SCALING_TYPES) {
         if (kv.second == name) {
             return (llama_rope_scaling_type) kv.first;
@@ -231,7 +231,7 @@ llama_rope_scaling_type llama_rope_scaling_type_from_string(const std::string & 
 //
 
 // checks if the weight tensor can be used with the specified buffer type and device
-bool weight_buft_supported(const llama_hparams & hparams, ggml_tensor * w, ggml_op op, ggml_backend_buffer_type_t buft, ggml_backend_dev_t dev) {
+static bool weight_buft_supported(const llama_hparams& hparams, ggml_tensor * w, ggml_op op, ggml_backend_buffer_type_t buft, ggml_backend_dev_t dev) {
     GGML_ASSERT(w != nullptr);
 
     if (op == GGML_OP_NONE) {
