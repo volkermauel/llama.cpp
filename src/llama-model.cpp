@@ -7664,7 +7664,7 @@ LLAMA_API int32_t llama_model_n_embd_inp(const llama_model * model) {
     return model->hparams.n_embd_inp();
 }
 
-int32_t llama_model_n_layer(const llama_model * model) {
+LLAMA_API int32_t llama_model_n_layer(const llama_model * model) {
     return model->hparams.n_layer;
 }
 
@@ -7880,16 +7880,16 @@ int32_t llama_model_meta_val_str_by_index(const llama_model * model, int32_t i, 
     std::advance(it, i);
     return snprintf(buf, buf_size, "%s", it->second.c_str());
 }
-
-int32_t llama_model_desc(const llama_model * model, char * buf, size_t buf_size) {
+LLAMA_API int32_t llama_model_desc(const llama_model * model, char * buf, size_t buf_size) {
     return snprintf(buf, buf_size, "%s", model->desc().c_str());
 }
 
-uint64_t llama_model_size(const llama_model * model) {
+LLAMA_API uint64_t llama_model_size(const llama_model * model) {
     return model->size();
 }
+}
 
-const char * llama_model_chat_template(const llama_model * model, const char * name) {
+LLAMA_API const char * llama_model_chat_template(const llama_model * model, const char * name) {
     const auto key = name ? LLM_KV(model->arch, name)(LLM_KV_TOKENIZER_CHAT_TEMPLATE)
         : LLM_KV(model->arch)(LLM_KV_TOKENIZER_CHAT_TEMPLATE);
     const auto & it = model->gguf_kv.find(key);
@@ -7908,7 +7908,7 @@ const char * llama_model_chat_template(const llama_model * model, const char * n
     return it->second.c_str();
 }
 
-uint64_t llama_model_n_params(const llama_model * model) {
+LLAMA_API uint64_t llama_model_n_params(const llama_model * model) {
     return model->n_elements();
 }
 
@@ -7920,14 +7920,14 @@ bool llama_model_has_encoder(const llama_model * model) {
     }
 }
 
-bool llama_model_has_decoder(const llama_model * model) {
+LLAMA_API bool llama_model_has_decoder(const llama_model * model) {
     switch (model->arch) {
         case LLM_ARCH_T5ENCODER: return false;
         default:                 return true;
     }
 }
 
-llama_token llama_model_decoder_start_token(const llama_model * model) {
+LLAMA_API llama_token llama_model_decoder_start_token(const llama_model * model) {
     return model->hparams.dec_start_token_id;
 }
 

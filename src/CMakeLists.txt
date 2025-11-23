@@ -156,4 +156,8 @@ if (BUILD_SHARED_LIBS)
     set_target_properties(llama PROPERTIES POSITION_INDEPENDENT_CODE ON)
     target_compile_definitions(llama PRIVATE LLAMA_BUILD)
     target_compile_definitions(llama PUBLIC  LLAMA_SHARED)
+    # Ensure all symbols are exported with default visibility on Linux
+    if(NOT WIN32)
+        target_compile_options(llama PRIVATE -fvisibility=default)
+    endif()
 endif()
