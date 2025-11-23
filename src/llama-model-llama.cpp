@@ -27,6 +27,7 @@ const char * llama_arch_name(llm_arch arch);
 
 // LLaMA architecture hyperparameter loading
 static void llama_load_hparams_llama(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch, uint32_t n_vocab) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
 
     if (hparams.n_expert == 8) {
@@ -56,6 +57,7 @@ static void llama_load_hparams_llama(llama_model_loader & ml, llama_hparams & hp
 
 // LLaMA4 architecture hyperparameter loading
 static void llama_load_hparams_llama4(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
     ml.get_key(LLM_KV_EXPERT_FEED_FORWARD_LENGTH,  hparams.n_ff_exp);
     ml.get_key(LLM_KV_INTERLEAVE_MOE_LAYER_STEP,   hparams.n_moe_layer_step);
@@ -90,6 +92,7 @@ static void llama_load_hparams_llama4(llama_model_loader & ml, llama_hparams & h
 
 // Arcee architecture hyperparameter loading
 static void llama_load_hparams_arcee(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
 
     // Arcee uses the same structure as Llama
@@ -101,6 +104,7 @@ static void llama_load_hparams_arcee(llama_model_loader & ml, llama_hparams & hp
 
 // AFMoE architecture hyperparameter loading
 static void llama_load_hparams_afmoe(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
     ml.get_key(LLM_KV_LEADING_DENSE_BLOCK_COUNT,   hparams.n_layer_dense_lead);
     ml.get_key(LLM_KV_EXPERT_FEED_FORWARD_LENGTH,  hparams.n_ff_exp);
@@ -133,6 +137,7 @@ static void llama_load_hparams_afmoe(llama_model_loader & ml, llama_hparams & hp
 
 // Deci architecture hyperparameter loading
 static void llama_load_hparams_deci(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
     switch (hparams.n_layer) {
         case 32: type = LLM_TYPE_7B; break;
@@ -144,6 +149,7 @@ static void llama_load_hparams_deci(llama_model_loader & ml, llama_hparams & hpa
 
 // Grok architecture hyperparameter loading
 static void llama_load_hparams_grok(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     // defaults for old GGUFs
     hparams.yarn_beta_fast = 8.0f;
     hparams.f_logit_scale = 0.5773502691896257f;
@@ -177,6 +183,7 @@ static void llama_load_hparams_grok(llama_model_loader & ml, llama_hparams & hpa
 
 // Falcon architecture hyperparameter loading
 static void llama_load_hparams_falcon(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS, hparams.f_norm_eps);
 
     switch (hparams.n_layer) {
@@ -188,6 +195,7 @@ static void llama_load_hparams_falcon(llama_model_loader & ml, llama_hparams & h
 
 // Baichuan architecture hyperparameter loading
 static void llama_load_hparams_baichuan(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
     switch (hparams.n_layer) {
         case 32: type = LLM_TYPE_7B; break;
@@ -203,6 +211,7 @@ static void llama_load_hparams_baichuan(llama_model_loader & ml, llama_hparams &
 
 // MiniCPM architecture hyperparameter loading
 static void llama_load_hparams_minicpm(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     // Backward-compatible defaults for older MiniCPM GGUFs
     hparams.f_embedding_scale = 12.0f;
     hparams.f_residual_scale  = 1.4f / sqrtf(float(hparams.n_layer));
@@ -227,6 +236,7 @@ static void llama_load_hparams_minicpm(llama_model_loader & ml, llama_hparams & 
 
 // MiniCPM3 architecture hyperparameter loading
 static void llama_load_hparams_minicpm3(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
     ml.get_key(LLM_KV_ATTENTION_Q_LORA_RANK,       hparams.n_lora_q);
     ml.get_key(LLM_KV_ATTENTION_KV_LORA_RANK,      hparams.n_lora_kv);
@@ -239,6 +249,7 @@ static void llama_load_hparams_minicpm3(llama_model_loader & ml, llama_hparams &
 
 // Granite architecture hyperparameter loading
 static void llama_load_hparams_granite(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch, uint32_t n_vocab) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
 
     switch (hparams.n_layer) {

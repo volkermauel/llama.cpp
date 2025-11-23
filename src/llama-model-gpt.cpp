@@ -26,6 +26,7 @@ const char * llama_arch_name(llm_arch arch);
 
 // GPT-2 architecture hyperparameter loading
 static void llama_load_hparams_gpt2(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS, hparams.f_norm_eps);
     switch (hparams.n_layer) {
         case 12: type = LLM_TYPE_SMALL; break;
@@ -38,6 +39,7 @@ static void llama_load_hparams_gpt2(llama_model_loader & ml, llama_hparams & hpa
 
 // GPT-NeoX architecture hyperparameter loading
 static void llama_load_hparams_gptneox(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS, hparams.f_norm_eps);
     switch (hparams.n_layer) {
         case 32: type = LLM_TYPE_1B; break;
@@ -50,6 +52,7 @@ static void llama_load_hparams_gptneox(llama_model_loader & ml, llama_hparams & 
 
 // StarCoder architecture hyperparameter loading
 static void llama_load_hparams_starcoder(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS, hparams.f_norm_eps);
     switch (hparams.n_layer) {
         case 24: type = LLM_TYPE_1B; break;
@@ -62,6 +65,7 @@ static void llama_load_hparams_starcoder(llama_model_loader & ml, llama_hparams 
 
 // MPT architecture hyperparameter loading
 static void llama_load_hparams_mpt(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS,  hparams.f_norm_eps);
     ml.get_key(LLM_KV_ATTENTION_CLAMP_KQV,      hparams.f_clamp_kqv, false);
     ml.get_key(LLM_KV_ATTENTION_MAX_ALIBI_BIAS, hparams.f_max_alibi_bias);
@@ -75,6 +79,7 @@ static void llama_load_hparams_mpt(llama_model_loader & ml, llama_hparams & hpar
 
 // StableLM architecture hyperparameter loading
 static void llama_load_hparams_stablelm(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS, hparams.f_norm_eps);
 
     switch (hparams.n_layer) {
@@ -87,6 +92,7 @@ static void llama_load_hparams_stablelm(llama_model_loader & ml, llama_hparams &
 
 // Refact architecture hyperparameter loading
 static void llama_load_hparams_refact(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
     switch (hparams.n_layer) {
         case 32: type = LLM_TYPE_1B; break;
@@ -99,6 +105,7 @@ static void llama_load_hparams_refact(llama_model_loader & ml, llama_hparams & h
 
 // CodeShell architecture hyperparameter loading
 static void llama_load_hparams_codeshell(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS, hparams.f_norm_eps);
     switch (hparams.n_layer) {
         case 42: type = LLM_TYPE_7B; break;
@@ -108,6 +115,7 @@ static void llama_load_hparams_codeshell(llama_model_loader & ml, llama_hparams 
 
 // Orion architecture hyperparameter loading
 static void llama_load_hparams_orion(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS, hparams.f_norm_eps);
 
     switch (hparams.n_layer) {

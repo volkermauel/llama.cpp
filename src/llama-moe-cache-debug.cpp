@@ -277,6 +277,7 @@ void llama_moe_log_performance_metrics(const ggml_moe_cache* cache) {
 
 // Phase 5: Post-prompt statistics reporting
 void llama_report_moe_cache_stats(struct llama_context* ctx) {
+    GGML_UNUSED(ctx);
     // Note: This function needs access to the model's MoE cache
     // The current implementation is a placeholder as direct access to
     // private members is not allowed. The actual implementation would

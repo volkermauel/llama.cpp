@@ -581,6 +581,10 @@ private:
 
 const char * llm_type_name(llm_type type);
 
+// Forward declarations for architecture-specific hyperparameter loading functions
+void llama_load_hparams_llama_family(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch, uint32_t n_vocab);
+void llama_load_hparams_gpt_family(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch);
+
 // For internal test use
 // TODO: remove
 const std::vector<std::pair<std::string, ggml_tensor *>> & llama_internal_get_tensor_map(const llama_model * model);
