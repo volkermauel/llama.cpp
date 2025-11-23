@@ -138,16 +138,7 @@ const char * llm_type_name(llm_type type) {
     }
 }
 
-std::string llama_rope_scaling_type_name(llama_rope_scaling_type rope_scaling_type) {
-    switch (rope_scaling_type) {
-        case LLAMA_ROPE_SCALING_TYPE_NONE: return "none";
-        case LLAMA_ROPE_SCALING_TYPE_LINEAR: return "linear";
-        case LLAMA_ROPE_SCALING_TYPE_YARN: return "yarn";
-        case LLAMA_ROPE_SCALING_TYPE_LONGROPE: return "longrope";
-        case LLAMA_ROPE_SCALING_TYPE_NTK: return "ntk";
-        default: return "unknown";
-    }
-}
+// llama_rope_scaling_type_name is now defined in llama-model-base.cpp only
 
 // Device management functions
 ggml_backend_dev_t llama_model::dev_layer(int il) const {

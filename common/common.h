@@ -328,9 +328,6 @@ struct common_params {
     
     // Number of MoE experts to keep in GPU cache (-1 for auto, uses moe_cache_params.n_gpu_experts)
     int32_t n_gpu_experts = -1;
-    
-    // Number of MoE experts to keep in GPU cache (-1 for auto, uses moe_cache_params.n_gpu_experts)
-    int32_t n_gpu_experts = -1;
 
     std::string model_alias          = ""; // model alias                                                   // NOLINT
     std::string hf_token             = ""; // HF token                                                      // NOLINT

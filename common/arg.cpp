@@ -641,7 +641,7 @@ static void add_rpc_devices(const std::string & servers) {
 
 bool common_params_parse(int argc, char ** argv, common_params & params, llama_example ex, void(*print_usage)(int, char **)) {
     auto ctx_arg = common_params_parser_init(params, ex, print_usage);
-    const common_params params_org = ctx_arg.params; // the example can modify the default params
+    common_params params_org = ctx_arg.params; // the example can modify the default params
 
     try {
         if (!common_params_parse_ex(argc, argv, ctx_arg)) {
@@ -3312,7 +3312,7 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
         "enable MoE cache statistics collection and reporting",
         [](common_params & params) {
             params.moe_cache_params.enable_stats = true;
-            LLAMA_LOG_INFO("MoE cache statistics enabled\n");
+            fprintf(stderr, "MoE cache statistics enabled\n");
         }
     ));
 
