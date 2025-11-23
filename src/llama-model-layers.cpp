@@ -60,7 +60,7 @@ static void llama_moe_log_layer_assignment(int il, ggml_backend_dev_t dev, const
 
 // Force GPU placement for compute-intensive layers
 void llama_model::ensure_embedding_layer_on_gpu() {
-    if (pimpl->dev_input.dev && pimpl->dev_input.dev->type == GGML_BACKEND_DEVICE_TYPE_GPU) {
+    if (pimpl->dev_input.dev && ggml_backend_dev_type(pimpl->dev_input.dev) == GGML_BACKEND_DEVICE_TYPE_GPU) {
         // Already on GPU
         return;
     }
@@ -76,7 +76,7 @@ void llama_model::ensure_embedding_layer_on_gpu() {
 }
 
 void llama_model::ensure_output_layer_on_gpu() {
-    if (pimpl->dev_output.dev && pimpl->dev_output.dev->type == GGML_BACKEND_DEVICE_TYPE_GPU) {
+    if (pimpl->dev_output.dev && ggml_backend_dev_type(pimpl->dev_output.dev) == GGML_BACKEND_DEVICE_TYPE_GPU) {
         // Already on GPU
         return;
     }
@@ -95,13 +95,13 @@ bool llama_model::validate_critical_layers_on_gpu() const {
     bool valid = true;
     
     // Check embedding layer
-    if (!pimpl->dev_input.dev || pimpl->dev_input.dev->type != GGML_BACKEND_DEVICE_TYPE_GPU) {
+    if (!pimpl->dev_input.dev || ggml_backend_dev_type(pimpl->dev_input.dev) != GGML_BACKEND_DEVICE_TYPE_GPU) {
         LLAMA_LOG_WARN("%s: embedding layer not on GPU\n", __func__);
         valid = false;
     }
     
     // Check output layer
-    if (!pimpl->dev_output.dev || pimpl->dev_output.dev->type != GGML_BACKEND_DEVICE_TYPE_GPU) {
+    if (!pimpl->dev_output.dev || ggml_backend_dev_type(pimpl->dev_output.dev) != GGML_BACKEND_DEVICE_TYPE_GPU) {
         LLAMA_LOG_WARN("%s: output layer not on GPU\n", __func__);
         valid = false;
     }
@@ -109,7 +109,7 @@ bool llama_model::validate_critical_layers_on_gpu() const {
     // Check at least some layers are on GPU
     bool has_gpu_layers = false;
     for (const auto & layer_dev : pimpl->dev_layer) {
-        if (layer_dev.dev && layer_dev.dev->type == GGML_BACKEND_DEVICE_TYPE_GPU) {
+        if (layer_dev.dev && ggml_backend_dev_type(layer_dev.dev) == GGML_BACKEND_DEVICE_TYPE_GPU) {
             has_gpu_layers = true;
             break;
         }
@@ -142,7 +142,7 @@ float llama_model::get_rope_freq_base(const llama_cparams & cparams, int il) con
 
     const bool is_swa_layer = hparams.swa_layers[il];
     const float rope_freq_base  = is_swa_layer ? hparams.rope_freq_base_train_swa  : hparams.rope_freq_base_train;
-    const float rope_freq_scale = is_swa_layer ? hparams.rope_freq_scale_train_swa : hparams.rope_freq_scale_train;
+    // rope_freq_scale is calculated in get_rope_freq_scale, not needed here
 
     if (cparams.rope_freq_base != 0.0f) {
         return cparams.rope_freq_base;
@@ -157,16 +157,19 @@ float llama_model::get_rope_freq_scale(const llama_cparams & cparams, int il) co
     }
 
     const bool is_swa_layer = hparams.swa_layers[il];
-    const float rope_freq_scale = is_swa_layer ? hparams.rope_freq_scale_train_swa : hparams.rope_freq_scale_train;
+    const float rope_freq_scale_val = is_swa_layer ? hparams.rope_freq_scale_train_swa : hparams.rope_freq_scale_train;
 
     if (cparams.rope_freq_scale != 0.0f) {
         return cparams.rope_freq_scale;
     }
 
-    return rope_freq_scale;
+    return rope_freq_scale_val;
 }
 
 ggml_tensor * llama_model::get_rope_factors(const llama_cparams & cparams, int il) const {
+    // Suppress unused parameter warning
+    (void)cparams;
+    
     if (il < 0 || (size_t)il >= layers.size()) {
         return nullptr;
     }
@@ -181,18 +184,70 @@ ggml_tensor * llama_model::get_rope_factors(const llama_cparams & cparams, int i
 
 // Memory creation
 llama_memory_i * llama_model::create_memory(const llama_memory_params & mparams, const llama_cparams & cparams) const {
+    // Suppress unused parameter warning
+    (void)cparams;
+    
     // Dispatch to appropriate memory implementation based on architecture
     if (llm_arch_is_recurrent(arch)) {
-        return new llama_memory_recurrent(mparams, cparams);
+        // For recurrent architectures, create llama_memory_recurrent
+        // Extract parameters from mparams and model
+        return new llama_memory_recurrent(
+            *this,                    // const llama_model & model
+            mparams.type_k,           // ggml_type type_r
+            mparams.type_v,           // ggml_type type_s
+            true,                     // bool offload
+            hparams.n_layer,          // uint32_t mem_size (using n_layer as approximation)
+            cparams.n_seq_max,        // uint32_t n_seq_max
+            nullptr                   // const layer_filter_cb & filter
+        );
     } else if (hparams.swa_type != LLAMA_SWA_TYPE_NONE) {
-        return new llama_memory_hybrid(mparams, cparams);
+        // For architectures with SWA, create llama_memory_hybrid
+        return new llama_memory_hybrid(
+            *this,                    // const llama_model & model
+            // Attention parameters
+            mparams.type_k,           // ggml_type type_k
+            mparams.type_v,           // ggml_type type_v
+            true,                     // bool v_trans
+            hparams.n_layer,          // uint32_t kv_size
+            0,                        // uint32_t n_pad
+            hparams.n_swa,            // uint32_t n_swa
+            hparams.swa_type,         // llama_swa_type swa_type
+            // Recurrent parameters
+            mparams.type_k,           // ggml_type type_r
+            mparams.type_v,           // ggml_type type_s
+            hparams.n_layer,          // uint32_t rs_size
+            // Common parameters
+            cparams.n_seq_max,        // uint32_t n_seq_max
+            true,                     // bool offload
+            false,                    // bool unified
+            nullptr,                  // const layer_filter_cb & filter_attn
+            nullptr                   // const layer_filter_cb & filter_recr
+        );
     } else {
-        return new llama_memory_kv(mparams, cparams);
+        // Default to KV cache for standard attention-based architectures
+        return new llama_kv_cache(
+            *this,                    // const llama_model & model
+            mparams.type_k,           // ggml_type type_k
+            mparams.type_v,           // ggml_type type_v
+            true,                     // bool v_trans
+            true,                     // bool offload
+            false,                    // bool unified
+            hparams.n_layer,          // uint32_t kv_size
+            cparams.n_seq_max,        // uint32_t n_seq_max
+            0,                        // uint32_t n_pad
+            0,                        // uint32_t n_swa
+            LLAMA_SWA_TYPE_NONE,      // llama_swa_type swa_type
+            nullptr,                  // const layer_filter_cb & filter
+            nullptr                   // const layer_reuse_cb & reuse
+        );
     }
 }
 
 // Graph building
 ggml_cgraph * llama_model::build_graph(const llm_graph_params & params) const {
+    // Suppress unused parameter warning
+    (void)params;
+    
     // Graph building implementation will be architecture-specific
     // This is a placeholder that should be overridden by architecture-specific implementations
     GGML_ABORT("build_graph not implemented for architecture %s", llama_arch_name(arch));

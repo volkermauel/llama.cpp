@@ -30,6 +30,62 @@
 // Forward declarations for external functions
 const char * llama_arch_name(llm_arch arch);
 
+// External function declarations that need to be defined here
+extern const char * llama_arch_name(llm_arch arch);
+
+// Missing function definitions
+const char * llama_arch_name(llm_arch arch) {
+    switch (arch) {
+        case LLM_ARCH_LLAMA:        return "llama";
+        case LLM_ARCH_FALCON:       return "falcon";
+        case LLM_ARCH_GPT2:         return "gpt2";
+        case LLM_ARCH_GPTJ:         return "gptj";
+        case LLM_ARCH_GPTNEOX:      return "gptneox";
+        case LLM_ARCH_MPT:          return "mpt";
+        case LLM_ARCH_STARCODER:    return "starcoder";
+        case LLM_ARCH_REFACT:       return "refact";
+        case LLM_ARCH_BERT:         return "bert";
+        case LLM_ARCH_NOMIC_BERT:   return "nomic-bert";
+        case LLM_ARCH_JINA_BERT_V2: return "jina-bert-v2";
+        case LLM_ARCH_BLOOM:        return "bloom";
+        case LLM_ARCH_STABLELM:     return "stablelm";
+        case LLM_ARCH_QWEN:         return "qwen";
+        case LLM_ARCH_QWEN2:        return "qwen2";
+        case LLM_ARCH_QWEN2MOE:     return "qwen2moe";
+        case LLM_ARCH_PHI2:         return "phi2";
+        case LLM_ARCH_PHI3:         return "phi3";
+        case LLM_ARCH_PLAMO:        return "plamo";
+        case LLM_ARCH_CODESHELL:    return "codeshell";
+        case LLM_ARCH_ORION:        return "orion";
+        case LLM_ARCH_INTERNLM2:    return "internlm2";
+        case LLM_ARCH_MINICPM:      return "minicpm";
+        case LLM_ARCH_GEMMA:        return "gemma";
+        case LLM_ARCH_GEMMA2:       return "gemma2";
+        case LLM_ARCH_GEMMA3:       return "gemma3";
+        case LLM_ARCH_STARCODER2:   return "starcoder2";
+        case LLM_ARCH_MAMBA:        return "mamba";
+        case LLM_ARCH_XVERSE:       return "xverse";
+        case LLM_ARCH_COMMAND_R:    return "command-r";
+        case LLM_ARCH_DBRX:         return "dbrx";
+        case LLM_ARCH_OLMO:         return "olmo";
+        case LLM_ARCH_OLMO2:        return "olmo2";
+        case LLM_ARCH_ARCTIC:       return "arctic";
+        case LLM_ARCH_DEEPSEEK:     return "deepseek";
+        case LLM_ARCH_DEEPSEEK2:    return "deepseek2";
+        case LLM_ARCH_CHATGLM:      return "chatglm";
+        case LLM_ARCH_BITNET:       return "bitnet";
+        case LLM_ARCH_T5:           return "t5";
+        case LLM_ARCH_JAIS:         return "jais";
+        case LLM_ARCH_NEMOTRON:     return "nemotron";
+        case LLM_ARCH_EXAONE:       return "exaone";
+        case LLM_ARCH_RWKV6:        return "rwkv6";
+        case LLM_ARCH_RWKV6QWEN2:   return "rwkv6qwen2";
+        case LLM_ARCH_RWKV7:        return "rwkv7";
+        case LLM_ARCH_UNKNOWN:      return "unknown";
+        default:                    return "unknown";
+    }
+}
+
 //
 // Core type definitions and utilities
 //
@@ -160,7 +216,7 @@ std::string llama_rope_scaling_type_name(llama_rope_scaling_type rope_scaling_ty
     return LLAMA_ROPE_SCALING_TYPES.at(rope_scaling_type);
 }
 
-static llama_rope_scaling_type llama_rope_scaling_type_from_string(const std::string & name) {
+llama_rope_scaling_type llama_rope_scaling_type_from_string(const std::string & name) {
     for (const auto & kv : LLAMA_ROPE_SCALING_TYPES) {
         if (kv.second == name) {
             return (llama_rope_scaling_type) kv.first;
@@ -175,7 +231,7 @@ static llama_rope_scaling_type llama_rope_scaling_type_from_string(const std::st
 //
 
 // checks if the weight tensor can be used with the specified buffer type and device
-static bool weight_buft_supported(const llama_hparams & hparams, ggml_tensor * w, ggml_op op, ggml_backend_buffer_type_t buft, ggml_backend_dev_t dev) {
+bool weight_buft_supported(const llama_hparams & hparams, ggml_tensor * w, ggml_op op, ggml_backend_buffer_type_t buft, ggml_backend_dev_t dev) {
     GGML_ASSERT(w != nullptr);
 
     if (op == GGML_OP_NONE) {
@@ -315,7 +371,7 @@ static bool weight_buft_supported(const llama_hparams & hparams, ggml_tensor * w
 using buft_list_t = std::vector<std::pair<ggml_backend_dev_t, ggml_backend_buffer_type_t>>;
 
 // find the first buffer type in the list that can use the tensor
-static ggml_backend_buffer_type_t select_weight_buft(const llama_hparams & hparams, ggml_tensor * tensor, ggml_op op, const buft_list_t & buft_list) {
+ggml_backend_buffer_type_t select_weight_buft(const llama_hparams & hparams, ggml_tensor * tensor, ggml_op op, const buft_list_t & buft_list) {
     GGML_ASSERT(!buft_list.empty());
     for (const auto & cur : buft_list) {
         ggml_backend_dev_t cur_dev = cur.first;
@@ -329,7 +385,7 @@ static ggml_backend_buffer_type_t select_weight_buft(const llama_hparams & hpara
 }
 
 // CPU: ACCEL -> GPU host -> CPU extra -> CPU
-static buft_list_t make_cpu_buft_list(const std::vector<ggml_backend_dev_t> & devices, bool use_extra_bufts, bool no_host) {
+buft_list_t make_cpu_buft_list(const std::vector<ggml_backend_dev_t> & devices, bool use_extra_bufts, bool no_host) {
     buft_list_t buft_list;
 
     // add ACCEL buffer types
@@ -391,7 +447,7 @@ static buft_list_t make_cpu_buft_list(const std::vector<ggml_backend_dev_t> & de
 }
 
 // GPU: split if LLAMA_SPLIT_MODE_ROW -> GPU
-static buft_list_t make_gpu_buft_list(ggml_backend_dev_t dev, llama_split_mode split_mode, const float * tensor_split) {
+buft_list_t make_gpu_buft_list(ggml_backend_dev_t dev, llama_split_mode split_mode, const float * tensor_split) {
     buft_list_t buft_list;
 
     // add the device split buffer type if requested and available
@@ -548,71 +604,40 @@ void llama_model::print_info() const {
     // More detailed logging will be added in separate files
 }
 
-ggml_backend_dev_t llama_model::dev_layer(int il) const {
-    // Device management logic will be extracted to a separate file
-    return nullptr;
-}
-
-ggml_backend_dev_t llama_model::dev_output() const {
-    // Device management logic will be extracted to a separate file
-    return nullptr;
-}
-
-ggml_backend_buffer_type_t llama_model::select_buft(int il) const {
-    // Buffer type selection logic will be extracted to a separate file
-    return nullptr;
-}
-
 bool llama_model::has_tensor_overrides() const {
     return pimpl->has_tensor_overrides;
 }
 
-const struct ggml_tensor * llama_model::get_tensor(const char * name) const {
-    // Tensor lookup logic will be extracted to a separate file
-    return nullptr;
+// Missing external functions
+llama_model_params llama_model_default_params() {
+    llama_model_params params = {};
+    params.n_gpu_layers = 0;
+    params.main_gpu = 0;
+    params.tensor_split = nullptr;
+    params.vocab_only = false;
+    params.use_mmap = true;
+    params.use_mlock = false;
+    params.check_tensors = false;
+    return params;
 }
 
-float llama_model::get_rope_freq_base(const llama_cparams & cparams, int il) const {
-    // RoPE logic will be extracted to a separate file
-    return 0.0f;
+bool llama_model_has_encoder(const llama_model * model) {
+    return model && model->arch == LLM_ARCH_T5;
 }
 
-float llama_model::get_rope_freq_scale(const llama_cparams & cparams, int il) const {
-    // RoPE logic will be extracted to a separate file
-    return 0.0f;
+const llama_vocab * llama_model_get_vocab(const llama_model * model) {
+    return model ? &model->vocab : nullptr;
 }
 
-ggml_tensor * llama_model::get_rope_factors(const llama_cparams & cparams, int il) const {
-    // RoPE logic will be extracted to a separate file
-    return nullptr;
+void llama_model_free(llama_model * model) {
+    delete model;
 }
 
-llama_memory_i * llama_model::create_memory(const llama_memory_params & params, const llama_cparams & cparams) const {
-    // Memory creation logic will be extracted to a separate file
-    return nullptr;
+int32_t llama_model_n_ctx_train(const llama_model * model) {
+    return model ? model->hparams.n_ctx_train : 0;
 }
 
-ggml_cgraph * llama_model::build_graph(const llm_graph_params & params) const {
-    // Graph building logic will be extracted to a separate file
-    return nullptr;
-}
-
-void llama_model::ensure_embedding_layer_on_gpu() {
-    // GPU placement logic will be extracted to a separate file
-}
-
-void llama_model::ensure_output_layer_on_gpu() {
-    // GPU placement logic will be extracted to a separate file
-}
-
-bool llama_model::validate_critical_layers_on_gpu() const {
-    // Validation logic will be extracted to a separate file
-    return true;
-}
-
-
-const std::vector<std::pair<std::string, ggml_tensor *>> & llama_internal_get_tensor_map(const llama_model * model) {
-    static std::vector<std::pair<std::string, ggml_tensor *>> empty;
-    // Internal tensor map logic will be extracted to a separate file
-    return empty;
-}
+// Forward declarations for load_hparams functions - these are implemented in llama-model-load.cpp
+void llama_load_hparams_bert_family(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch);
+void llama_load_hparams_moe_family(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch, unsigned int n_layer);
+void llama_load_hparams_specialized(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch, unsigned int n_layer);

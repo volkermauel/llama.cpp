@@ -76,7 +76,8 @@ void llama_moe_log_cache_stats(const ggml_moe_cache* cache) {
     std::lock_guard<std::mutex> lock(g_moe_debug_mutex);
     
     // Get current statistics
-    ggml_moe_cache_stats stats = ggml_moe_cache_get_stats(cache);
+    ggml_moe_cache_stats stats;
+    ggml_moe_cache_get_stats(cache, &stats);
     
     // Calculate derived metrics
     double hit_rate = (stats.total_requests > 0)
@@ -131,7 +132,8 @@ void llama_moe_log_cache_stats_phase5(const ggml_moe_cache* cache) {
     std::lock_guard<std::mutex> lock(g_moe_debug_mutex);
     
     // Get current statistics
-    ggml_moe_cache_stats stats = ggml_moe_cache_get_stats(cache);
+    ggml_moe_cache_stats stats;
+    ggml_moe_cache_get_stats(cache, &stats);
     
     // Calculate derived metrics
     double hit_rate = (stats.total_requests > 0)
@@ -247,7 +249,8 @@ void llama_moe_log_performance_metrics(const ggml_moe_cache* cache) {
     
     std::lock_guard<std::mutex> lock(g_moe_debug_mutex);
     
-    ggml_moe_cache_stats stats = ggml_moe_cache_get_stats(cache);
+    ggml_moe_cache_stats stats;
+    ggml_moe_cache_get_stats(cache, &stats);
     
     // Calculate performance metrics
     double throughput_mbps = (stats.current_size > 0 && stats.avg_load_time > 0)
