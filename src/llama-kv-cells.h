@@ -57,7 +57,7 @@ public:
     }
 
     uint32_t size() const {
-        return pos.size();
+        return static_cast<uint32_t>(pos.size());
     }
 
     void resize(uint32_t n) {
@@ -77,7 +77,7 @@ public:
     }
 
     uint32_t get_used() const {
-        return used.size();
+        return static_cast<uint32_t>(used.size());
     }
 
     // the index of the first cell that is used
@@ -294,7 +294,7 @@ public:
         assert(i < pos.size());
         assert(pos[i] != -1);
 
-        return seq[i].count();
+        return static_cast<int>(seq[i].count());
     }
 
     // check if the cell contains seq_id

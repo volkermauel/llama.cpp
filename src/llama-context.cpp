@@ -1402,6 +1402,13 @@ llm_graph_result * llama_context::get_gf_res_reserve() const {
     return static_cast<llm_graph_result *>(gf_res_reserve.get());
 }
 
+// Suppress -Wsuggest-attribute=noreturn warning for this function
+// The function contains GGML_ASSERT which may abort, but it normally returns
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsuggest-attribute=noreturn"
+#endif
+
 ggml_cgraph * llama_context::graph_reserve(uint32_t n_tokens, uint32_t n_seqs, uint32_t n_outputs, const llama_memory_context_i * mctx, bool split_only) {
     LLAMA_LOG_DEBUG("%s: reserving a graph for ubatch with n_tokens = %4u, n_seqs = %2u, n_outputs = %4u\n", __func__, n_tokens, n_seqs, n_outputs);
     GGML_ASSERT(n_outputs >= 1);
@@ -1447,6 +1454,10 @@ ggml_cgraph * llama_context::graph_reserve(uint32_t n_tokens, uint32_t n_seqs, u
 
     return gf;
 }
+
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 llm_graph_params llama_context::graph_params(
                         llm_graph_result * res,
