@@ -87,6 +87,7 @@ static void llama_load_hparams_qwen3moe(llama_model_loader & ml, llama_hparams &
 
 // Qwen3VLMoE architecture hyperparameter loading
 static void llama_load_hparams_qwen3vlmoe(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_NUM_DEEPSTACK_LAYERS, hparams.n_deepstack_layers, false);
     ml.get_key_or_arr(LLM_KV_ROPE_DIMENSION_SECTIONS, hparams.rope_sections, 4, true);
     ml.get_key(LLM_KV_EXPERT_FEED_FORWARD_LENGTH, hparams.n_ff_exp, false);
@@ -100,6 +101,7 @@ static void llama_load_hparams_qwen3vlmoe(llama_model_loader & ml, llama_hparams
 
 // DeepSeek2 MoE architecture hyperparameter loading
 static void llama_load_hparams_deepseek2_moe(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_LEADING_DENSE_BLOCK_COUNT,   hparams.n_layer_dense_lead);
     ml.get_key(LLM_KV_EXPERT_FEED_FORWARD_LENGTH,  hparams.n_ff_exp);
     ml.get_key(LLM_KV_EXPERT_SHARED_COUNT,         hparams.n_expert_shared);
@@ -131,6 +133,7 @@ static void llama_load_hparams_deepseek2_moe(llama_model_loader & ml, llama_hpar
 
 // OLMoE architecture hyperparameter loading
 static void llama_load_hparams_olmoe(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS, hparams.f_norm_eps);
     ml.get_key(LLM_KV_ATTENTION_CLAMP_KQV,     hparams.f_clamp_kqv, false);
 
@@ -144,6 +147,7 @@ static void llama_load_hparams_olmoe(llama_model_loader & ml, llama_hparams & hp
 
 // PhiMoE architecture hyperparameter loading
 static void llama_load_hparams_phimoe(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
 
     switch (hparams.n_layer) {
@@ -154,6 +158,7 @@ static void llama_load_hparams_phimoe(llama_model_loader & ml, llama_hparams & h
 
 // GLM4 MoE architecture hyperparameter loading
 static void llama_load_hparams_glm4_moe(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_LEADING_DENSE_BLOCK_COUNT,   hparams.n_layer_dense_lead);
     ml.get_key(LLM_KV_EXPERT_FEED_FORWARD_LENGTH,  hparams.n_ff_exp);
     ml.get_key(LLM_KV_EXPERT_SHARED_COUNT,         hparams.n_expert_shared);
@@ -175,6 +180,7 @@ static void llama_load_hparams_glm4_moe(llama_model_loader & ml, llama_hparams &
 
 // Bailing MoE architecture hyperparameter loading
 static void llama_load_hparams_bailingmoe(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_LEADING_DENSE_BLOCK_COUNT,   hparams.n_layer_dense_lead);
     ml.get_key(LLM_KV_EXPERT_FEED_FORWARD_LENGTH,  hparams.n_ff_exp);
     ml.get_key(LLM_KV_EXPERT_SHARED_COUNT,         hparams.n_expert_shared);
@@ -196,6 +202,7 @@ static void llama_load_hparams_bailingmoe(llama_model_loader & ml, llama_hparams
 
 // Bailing MoE v2 architecture hyperparameter loading
 static void llama_load_hparams_bailingmoe2(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_LEADING_DENSE_BLOCK_COUNT,   hparams.n_layer_dense_lead);
     ml.get_key(LLM_KV_EXPERT_FEED_FORWARD_LENGTH,  hparams.n_ff_exp);
     ml.get_key(LLM_KV_EXPERT_SHARED_COUNT,         hparams.n_expert_shared);
@@ -217,6 +224,7 @@ static void llama_load_hparams_bailingmoe2(llama_model_loader & ml, llama_hparam
 
 // OpenAI MoE architecture hyperparameter loading
 static void llama_load_hparams_openai_moe(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_EXPERT_FEED_FORWARD_LENGTH,        hparams.n_ff_exp, false);
 
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
@@ -229,6 +237,7 @@ static void llama_load_hparams_openai_moe(llama_model_loader & ml, llama_hparams
 
 // LFM2 MoE architecture hyperparameter loading
 static void llama_load_hparams_lfm2moe(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_EXPERT_FEED_FORWARD_LENGTH,        hparams.n_ff_exp, false);
 
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
@@ -240,6 +249,7 @@ static void llama_load_hparams_lfm2moe(llama_model_loader & ml, llama_hparams & 
 
 // Grove MoE architecture hyperparameter loading
 static void llama_load_hparams_grovernoe(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_EXPERT_FEED_FORWARD_LENGTH,        hparams.n_ff_exp, false);
 
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
@@ -252,6 +262,7 @@ static void llama_load_hparams_grovernoe(llama_model_loader & ml, llama_hparams 
 
 // Dispatch function for MoE family architectures
 void llama_load_hparams_moe_family(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch, uint32_t n_vocab) {
+    GGML_UNUSED(n_vocab);
     switch (arch) {
         case LLM_ARCH_MIXTRAL:      llama_load_hparams_mixtral(ml, hparams, type, arch); break;
         case LLM_ARCH_DBRX:         llama_load_hparams_dbrx(ml, hparams, type, arch); break;

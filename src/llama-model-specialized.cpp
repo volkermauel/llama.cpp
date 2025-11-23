@@ -40,6 +40,7 @@
 
 // Forward declarations
 const char * llama_arch_name(llm_arch arch);
+void llama_load_hparams_specialized(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch, uint32_t n_vocab);
 
 // Mamba architecture hyperparameter loading
 static void llama_load_hparams_mamba(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
@@ -76,6 +77,7 @@ static void llama_load_hparams_mamba(llama_model_loader & ml, llama_hparams & hp
 
 // Mamba2 architecture hyperparameter loading
 static void llama_load_hparams_mamba2(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_SSM_CONV_KERNEL,    hparams.ssm_d_conv);
     ml.get_key(LLM_KV_SSM_INNER_SIZE,     hparams.ssm_d_inner);
     ml.get_key(LLM_KV_SSM_STATE_SIZE,     hparams.ssm_d_state);
@@ -710,6 +712,7 @@ static void llama_load_hparams_wavtokenizer_dec(llama_model_loader & ml, llama_h
 
 // Dots1 architecture hyperparameter loading
 static void llama_load_hparams_dots1(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
 
     switch (hparams.n_layer) {
@@ -720,6 +723,7 @@ static void llama_load_hparams_dots1(llama_model_loader & ml, llama_hparams & hp
 
 // Ernie4.5 architecture hyperparameter loading
 static void llama_load_hparams_ernie45(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
     switch (hparams.n_layer) {
         case 56: type = LLM_TYPE_21B_A3B; break;
@@ -743,6 +747,7 @@ static void llama_load_hparams_ernie45_moe(llama_model_loader & ml, llama_hparam
 
 // Falcon H1 architecture hyperparameter loading
 static void llama_load_hparams_falcon_h1(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_SSM_CONV_KERNEL,    hparams.ssm_d_conv);
     ml.get_key(LLM_KV_SSM_INNER_SIZE,     hparams.ssm_d_inner);
     ml.get_key(LLM_KV_SSM_STATE_SIZE,     hparams.ssm_d_state);
@@ -763,6 +768,7 @@ static void llama_load_hparams_falcon_h1(llama_model_loader & ml, llama_hparams 
 
 // Hunyuan MoE architecture hyperparameter loading
 static void llama_load_hparams_hunyuan_moe(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_LEADING_DENSE_BLOCK_COUNT,   hparams.n_layer_dense_lead);
     ml.get_key(LLM_KV_EXPERT_FEED_FORWARD_LENGTH,  hparams.n_ff_exp);
     ml.get_key(LLM_KV_EXPERT_SHARED_COUNT,         hparams.n_expert_shared);
@@ -784,6 +790,7 @@ static void llama_load_hparams_hunyuan_moe(llama_model_loader & ml, llama_hparam
 
 // Hunyuan Dense architecture hyperparameter loading
 static void llama_load_hparams_hunyuan_dense(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
 
     switch (hparams.n_layer) {
@@ -795,6 +802,7 @@ static void llama_load_hparams_hunyuan_dense(llama_model_loader & ml, llama_hpar
 
 // SmolLM3 architecture hyperparameter loading
 static void llama_load_hparams_smollm3(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
 
     switch (hparams.n_layer) {
@@ -805,6 +813,7 @@ static void llama_load_hparams_smollm3(llama_model_loader & ml, llama_hparams & 
 
 // LFM2 architecture hyperparameter loading
 static void llama_load_hparams_lfm2(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
 
     switch (hparams.n_layer) {
@@ -815,6 +824,7 @@ static void llama_load_hparams_lfm2(llama_model_loader & ml, llama_hparams & hpa
 
 // SmallThinker architecture hyperparameter loading
 static void llama_load_hparams_smallthinker(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
 
     switch (hparams.n_layer) {
@@ -826,6 +836,7 @@ static void llama_load_hparams_smallthinker(llama_model_loader & ml, llama_hpara
 
 // Apertus architecture hyperparameter loading
 static void llama_load_hparams_apertus(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
 
     switch (hparams.n_layer) {
@@ -836,6 +847,7 @@ static void llama_load_hparams_apertus(llama_model_loader & ml, llama_hparams & 
 
 // Minimax M2 architecture hyperparameter loading
 static void llama_load_hparams_minimax_m2(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_EXPERT_FEED_FORWARD_LENGTH,        hparams.n_ff_exp, false);
 
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
@@ -847,6 +859,7 @@ static void llama_load_hparams_minimax_m2(llama_model_loader & ml, llama_hparams
 
 // CogVLM architecture hyperparameter loading
 static void llama_load_hparams_cogvlm(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
 
     switch (hparams.n_layer) {
@@ -857,6 +870,7 @@ static void llama_load_hparams_cogvlm(llama_model_loader & ml, llama_hparams & h
 
 // Pangu Embed architecture hyperparameter loading
 static void llama_load_hparams_pangu_embed(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
     ml.get_key(LLM_KV_POOLING_TYPE, hparams.pooling_type);
 

@@ -71,6 +71,7 @@ static void llama_load_hparams_jina_bert_v2(llama_model_loader & ml, llama_hpara
 
 // Jina BERT v3 architecture hyperparameter loading
 static void llama_load_hparams_jina_bert_v3(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS,    hparams.f_norm_eps);
     ml.get_key(LLM_KV_ATTENTION_CAUSAL,           hparams.causal_attn);
     ml.get_key(LLM_KV_POOLING_TYPE,               hparams.pooling_type, false);
@@ -100,6 +101,7 @@ static void llama_load_hparams_nomic_bert(llama_model_loader & ml, llama_hparams
 
 // Neo BERT architecture hyperparameter loading
 static void llama_load_hparams_neo_bert(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
     ml.get_key(LLM_KV_ATTENTION_CAUSAL,            hparams.causal_attn);
     ml.get_key(LLM_KV_POOLING_TYPE,                hparams.pooling_type);
