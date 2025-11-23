@@ -27,7 +27,6 @@ target_compile_features   (mtmd PRIVATE cxx_std_17)
 
 if (BUILD_SHARED_LIBS)
     set_target_properties     (mtmd PROPERTIES POSITION_INDEPENDENT_CODE ON)
-    target_compile_definitions(mtmd PRIVATE LLAMA_BUILD)
     target_compile_definitions(mtmd PUBLIC  LLAMA_SHARED)
 endif()
 
