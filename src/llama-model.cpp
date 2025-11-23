@@ -7660,11 +7660,11 @@ int32_t llama_model_n_embd(const llama_model * model) {
     return model->hparams.n_embd;
 }
 
-LLAMA_API int32_t llama_model_n_embd_inp(const llama_model * model) {
+LLAMA_API int32_t llama_model_n_embd_inp(const struct llama_model * model) {
     return model->hparams.n_embd_inp();
 }
 
-LLAMA_API int32_t llama_model_n_layer(const llama_model * model) {
+LLAMA_API int32_t llama_model_n_layer(const struct llama_model * model) {
     return model->hparams.n_layer;
 }
 
