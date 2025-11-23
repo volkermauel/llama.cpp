@@ -4,6 +4,7 @@
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
+#include <cinttypes>
 
 // Debug configuration
 static struct {
@@ -83,7 +84,7 @@ void ggml_moe_log_cache_stats(const ggml_moe_cache* cache) {
     printf("  Current size: %zu MB\n", cache->stats.current_size / (1024 * 1024));
     printf("  Peak size: %zu MB\n", cache->stats.peak_size / (1024 * 1024));
     printf("  Hit rate: %.2f%%\n", cache->stats.hit_rate * 100);
-    printf("  Eviction count: %zu\n", cache->stats.evictions);
+    printf("  Eviction count: %" PRIu64 "\n", cache->stats.evictions);
 }
 
 void ggml_moe_log_layer_assignment(int layer_id, const char* device_type, const char* layer_type) {
@@ -138,14 +139,14 @@ void ggml_moe_log_cache_stats_phase5(const ggml_moe_cache* cache) {
     printf("Current Usage: %zu MB (%.1f%%)\n", 
            cache->stats.current_size / (1024 * 1024),
            (double)cache->stats.current_size / cache->config.max_cache_size * 100);
-    printf("Total Hits: %zu\n", cache->stats.cache_hits);
-    printf("Total Misses: %zu\n", cache->stats.cache_misses);
+    printf("Total Hits: %" PRIu64 "\n", cache->stats.cache_hits);
+    printf("Total Misses: %" PRIu64 "\n", cache->stats.cache_misses);
     printf("Hit Rate: %.2f%%\n", cache->stats.hit_rate * 100);
-    printf("Eviction Count: %zu\n", cache->stats.evictions);
-    printf("Prefetch Hits: %zu\n", cache->stats.prefetch_hits);
+    printf("Eviction Count: %" PRIu64 "\n", cache->stats.evictions);
+    printf("Prefetch Hits: %" PRIu64 "\n", cache->stats.prefetch_hits);
     printf("Prefetch Accuracy: %.2f%%\n", cache->stats.prefetch_accuracy * 100);
     printf("Average Load Time: %.2f ms\n", cache->stats.avg_load_time);
     printf("Average Transfer Time: %.2f ms\n", cache->stats.avg_transfer_time_ms);
-    printf("Async Operations Completed: %zu\n", cache->stats.async_operations_completed);
+    printf("Async Operations Completed: %" PRIu64 "\n", cache->stats.async_operations_completed);
     printf("====================================\n");
 }
