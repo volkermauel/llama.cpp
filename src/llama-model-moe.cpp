@@ -26,6 +26,7 @@
 #include <stdexcept>
 
 // Forward declarations
+void llama_load_hparams_moe_family(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch, uint32_t n_vocab);
 static const char * llama_expert_gating_func_name(llama_expert_gating_func_type type);
 // llama_rope_scaling_type_name is now defined in llama-arch.cpp
 // llama_rope_scaling_type_from_string is now defined in llama-arch.cpp

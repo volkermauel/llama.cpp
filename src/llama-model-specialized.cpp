@@ -42,7 +42,9 @@
 const char * llama_arch_name(llm_arch arch);
 
 // Mamba architecture hyperparameter loading
-static void llama_load_hparams_mamba(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+static void llama_load_hparams_mamba2(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_SSM_CONV_KERNEL,    hparams.ssm_d_conv);
     ml.get_key(LLM_KV_SSM_INNER_SIZE,     hparams.ssm_d_inner);
     ml.get_key(LLM_KV_SSM_STATE_SIZE,     hparams.ssm_d_state);
@@ -325,6 +327,7 @@ static void llama_load_hparams_bitnet(llama_model_loader & ml, llama_hparams & h
 
 // InternLM2 architecture hyperparameter loading
 static void llama_load_hparams_internlm2(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
     switch (hparams.n_layer) {
         case 32: type = LLM_TYPE_7B; break;
@@ -335,6 +338,7 @@ static void llama_load_hparams_internlm2(llama_model_loader & ml, llama_hparams 
 
 // Phi2 architecture hyperparameter loading
 static void llama_load_hparams_phi2(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS, hparams.f_norm_eps);
 
     switch (hparams.n_layer) {
@@ -346,6 +350,7 @@ static void llama_load_hparams_phi2(llama_model_loader & ml, llama_hparams & hpa
 
 // Phi3 architecture hyperparameter loading
 static void llama_load_hparams_phi3(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
 
     switch (hparams.n_layer) {
