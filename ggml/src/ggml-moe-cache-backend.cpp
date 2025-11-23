@@ -314,12 +314,13 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
         
         // Sort by priority score (higher score = better eviction candidate)
         std::sort(eviction_candidates.begin(), eviction_candidates.end(),
-            [](const auto& a, const auto& b) {
+            [](const std::pair<ggml_moe_expert_key, double>& a, const std::pair<ggml_moe_expert_key, double>& b) {
                 return a.second > b.second; // Higher priority first
             });
         
         // Evict experts based on priority until we have enough space
-        for (const auto& [key, priority] : eviction_candidates) {
+        for (const std::pair<ggml_moe_expert_key, double>& candidate : eviction_candidates) {
+            const ggml_moe_expert_key& key = candidate.first;
             if (freed_space >= space_to_free) {
                 break; // Enough space freed
             }
@@ -330,8 +331,8 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
                 size_t expert_size = get_expert_size(expert_source, key.layer_id, key.expert_id);
                 
                 // Log eviction event
-                llama_moe_log_eviction(key.layer_id, key.expert_id, "Cache full - LRU eviction");
-                llama_moe_log_expert_lifecycle(key.layer_id, key.expert_id, "Evicting", "Making room for new expert");
+                ggml_moe_log_eviction(key.layer_id, key.expert_id, "Cache full - LRU eviction");
+                ggml_moe_log_expert_lifecycle(key.layer_id, key.expert_id, "Evicting", "Making room for new expert");
                 
                 // Free the GPU buffer
                 ggml_backend_buffer_free(it->second);
@@ -356,8 +357,8 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
                 }
                 
                 // Log transfer operation
-                llama_moe_log_transfer("VRAM->RAM", expert_size,
-                                      format("Expert %s evicted", llama_moe_format_expert_key(key.layer_id, key.expert_id)).c_str());
+                ggml_moe_log_transfer("VRAM->RAM", expert_size,
+                                      llama_moe_format_expert_key(key.layer_id, key.expert_id).c_str());
             }
         }
     }
@@ -375,14 +376,14 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
         size_t expert_offset = expert_id * expert_size;
         
         // Log expert lifecycle event
-        llama_moe_log_expert_lifecycle(layer_id, expert_id, "Loading", "Starting async load");
+        ggml_moe_log_expert_lifecycle(layer_id, expert_id, "Loading", "Starting async load");
         
         // Evict experts if necessary
         evict_experts(expert_size);
         
         // Check if we have enough space after eviction
         if (stats.current_size + expert_size > config.max_cache_size) {
-            llama_moe_log_error(layer_id, expert_id, "Not enough space even after eviction", -1);
+            ggml_moe_log_error(layer_id, expert_id, "Not enough space even after eviction", -1);
             return nullptr;  // Not enough space even after eviction
         }
         
@@ -390,7 +391,7 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
         ggml_backend_buffer_t gpu_buffer = ggml_backend_buft_alloc_buffer(gpu_buft, expert_size);
         
         if (!gpu_buffer) {
-            llama_moe_log_error(layer_id, expert_id, "Failed to allocate GPU buffer", -2);
+            ggml_moe_log_error(layer_id, expert_id, "Failed to allocate GPU buffer", -2);
             return nullptr;
         }
         
@@ -399,7 +400,7 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
         
         if (!pinned_buffer) {
             ggml_backend_buffer_free(gpu_buffer);
-            llama_moe_log_error(layer_id, expert_id, "Failed to acquire pinned buffer", -3);
+            ggml_moe_log_error(layer_id, expert_id, "Failed to acquire pinned buffer", -3);
             return nullptr;
         }
         
@@ -423,11 +424,11 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
         stats.total_transfers_ram_to_vram++;
         
         // Log transfer operation
-        llama_moe_log_transfer("RAM->VRAM", expert_size,
-                              format("Expert %s loaded", llama_moe_format_expert_key(layer_id, expert_id)).c_str());
+        ggml_moe_log_transfer("RAM->VRAM", expert_size,
+                              llama_moe_format_expert_key(layer_id, expert_id).c_str());
         
         // Log expert lifecycle event
-        llama_moe_log_expert_lifecycle(layer_id, expert_id, "Loaded", "Successfully loaded to GPU");
+        ggml_moe_log_expert_lifecycle(layer_id, expert_id, "Loaded", "Successfully loaded to GPU");
         
         return gpu_buffer;
     }
@@ -547,7 +548,7 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
         ggml_moe_cache_gpu* gpu_cache = static_cast<ggml_moe_cache_gpu*>(cache);
         
         // Log prefetch operation
-        llama_moe_log_prefetch(layer_id, -1, 0, "RAM", "VRAM");
+        ggml_moe_log_prefetch(layer_id, -1, 0, "RAM", "VRAM");
         
         // Start async prefetch for each expert
         for (int expert_id : expert_ids) {
@@ -562,7 +563,7 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
             // Log individual expert prefetch
             size_t expert_size = gpu_cache->get_expert_size(expert_tensor, layer_id, expert_id);
             (void)expert_size; // Mark as intentionally unused
-            llama_moe_log_expert_lifecycle(layer_id, expert_id, "Prefetching", "Async prefetch started");
+            ggml_moe_log_expert_lifecycle(layer_id, expert_id, "Prefetching", "Async prefetch started");
             
             // Load expert asynchronously (this will evict if needed)
             ggml_backend_buffer_t gpu_buffer = gpu_cache->load_expert_async(
@@ -580,9 +581,9 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
                 cache->expert_stats[key].is_cached = true;
                 cache->stats.prefetches++;
                 
-                llama_moe_log_expert_lifecycle(layer_id, expert_id, "Prefetched", "Successfully loaded to cache");
+                ggml_moe_log_expert_lifecycle(layer_id, expert_id, "Prefetched", "Successfully loaded to cache");
             } else {
-                llama_moe_log_warning(layer_id, expert_id, "Prefetch failed - could not load expert");
+                ggml_moe_log_warning(layer_id, expert_id, "Prefetch failed - could not load expert");
             }
         }
     }
@@ -657,7 +658,7 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
             }
             
             // Log stream overlap operation
-            llama_moe_log_expert_lifecycle(layer_id, expert_id, "Stream Overlap", "Starting async prefetch on transfer stream");
+            ggml_moe_log_expert_lifecycle(layer_id, expert_id, "Stream Overlap", "Starting async prefetch on transfer stream");
             
             // Load expert asynchronously (this will evict if needed)
             // In a full implementation, this would use the transfer_stream
@@ -676,7 +677,7 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
                 cache->expert_stats[key].is_cached = true;
                 cache->stats.prefetches++;
                 
-                llama_moe_log_expert_lifecycle(layer_id, expert_id, "Stream Overlap", "Successfully prefetched on transfer stream");
+                ggml_moe_log_expert_lifecycle(layer_id, expert_id, "Stream Overlap", "Successfully prefetched on transfer stream");
             }
         }
         
@@ -722,7 +723,9 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
         std::lock_guard<std::mutex> lock(const_cast<std::mutex&>(cache->cache_mutex));
         
         // Free all cached buffers
-        for (auto& [key, buffer] : cache->cache_map) {
+        for (auto it = cache->cache_map.begin(); it != cache->cache_map.end(); ++it) {
+            const ggml_moe_expert_key& key = it->first;
+            ggml_backend_buffer_t buffer = it->second;
             if (buffer) {
                 ggml_backend_buffer_free(buffer);
             }
@@ -741,7 +744,9 @@ struct ggml_moe_cache_interface_gpu : public ggml_moe_cache_interface {
         if (!cache) return;
         
         // Free all cached buffers
-        for (auto& [key, buffer] : cache->cache_map) {
+        for (auto it = cache->cache_map.begin(); it != cache->cache_map.end(); ++it) {
+            const ggml_moe_expert_key& key = it->first;
+            ggml_backend_buffer_t buffer = it->second;
             if (buffer) {
                 ggml_backend_buffer_free(buffer);
             }

@@ -21,14 +21,130 @@
 #include <vector>
 #include <string>
 
-// Forward declarations
-static const char * llm_type_name(llm_type type);
+// Forward declarations - remove conflicting static declarations
 static const char * llama_expert_gating_func_name(llama_expert_gating_func_type type);
-static std::string llama_rope_scaling_type_name(llama_rope_scaling_type rope_scaling_type);
 static llama_rope_scaling_type llama_rope_scaling_type_from_string(const std::string & name);
 static bool weight_buft_supported(const llama_hparams & hparams, ggml_tensor * w, ggml_op op, ggml_backend_buffer_type_t buft, ggml_backend_dev_t dev);
 static ggml_backend_buffer_type_t select_weight_buft(const llama_hparams & hparams, ggml_tensor * tensor, ggml_op op, const std::vector<std::pair<ggml_backend_dev_t, ggml_backend_buffer_type_t>> & buft_list);
-const char * llama_arch_name(llm_arch arch);
+
+// Add missing function implementations
+static const char * llm_type_name(llm_type type) {
+    switch (type) {
+        case LLM_TYPE_14M: return "14M";
+        case LLM_TYPE_17M: return "17M";
+        case LLM_TYPE_22M: return "22M";
+        case LLM_TYPE_33M: return "33M";
+        case LLM_TYPE_60M: return "60M";
+        case LLM_TYPE_70M: return "70M";
+        case LLM_TYPE_80M: return "80M";
+        case LLM_TYPE_109M: return "109M";
+        case LLM_TYPE_137M: return "137M";
+        case LLM_TYPE_140M: return "140M";
+        case LLM_TYPE_160M: return "160M";
+        case LLM_TYPE_190M: return "190M";
+        case LLM_TYPE_220M: return "220M";
+        case LLM_TYPE_250M: return "250M";
+        case LLM_TYPE_256M: return "256M";
+        case LLM_TYPE_270M: return "270M";
+        case LLM_TYPE_335M: return "335M";
+        case LLM_TYPE_350M: return "350M";
+        case LLM_TYPE_360M: return "360M";
+        case LLM_TYPE_410M: return "410M";
+        case LLM_TYPE_450M: return "450M";
+        case LLM_TYPE_475M: return "475M";
+        case LLM_TYPE_558M: return "558M";
+        case LLM_TYPE_700M: return "700M";
+        case LLM_TYPE_770M: return "770M";
+        case LLM_TYPE_780M: return "780M";
+        case LLM_TYPE_950M: return "950M";
+        case LLM_TYPE_0_3B: return "0.3B";
+        case LLM_TYPE_0_5B: return "0.5B";
+        case LLM_TYPE_0_6B: return "0.6B";
+        case LLM_TYPE_1B: return "1B";
+        case LLM_TYPE_1_2B: return "1.2B";
+        case LLM_TYPE_1_3B: return "1.3B";
+        case LLM_TYPE_1_4B: return "1.4B";
+        case LLM_TYPE_1_5B: return "1.5B";
+        case LLM_TYPE_1_6B: return "1.6B";
+        case LLM_TYPE_1_7B: return "1.7B";
+        case LLM_TYPE_1_8B: return "1.8B";
+        case LLM_TYPE_2B: return "2B";
+        case LLM_TYPE_2_6B: return "2.6B";
+        case LLM_TYPE_2_8B: return "2.8B";
+        case LLM_TYPE_2_9B: return "2.9B";
+        case LLM_TYPE_3B: return "3B";
+        case LLM_TYPE_4B: return "4B";
+        case LLM_TYPE_6B: return "6B";
+        case LLM_TYPE_6_9B: return "6.9B";
+        case LLM_TYPE_7B: return "7B";
+        case LLM_TYPE_8B: return "8B";
+        case LLM_TYPE_9B: return "9B";
+        case LLM_TYPE_11B: return "11B";
+        case LLM_TYPE_12B: return "12B";
+        case LLM_TYPE_13B: return "13B";
+        case LLM_TYPE_14B: return "14B";
+        case LLM_TYPE_15B: return "15B";
+        case LLM_TYPE_16B: return "16B";
+        case LLM_TYPE_20B: return "20B";
+        case LLM_TYPE_26B: return "26B";
+        case LLM_TYPE_27B: return "27B";
+        case LLM_TYPE_30B: return "30B";
+        case LLM_TYPE_32B: return "32B";
+        case LLM_TYPE_34B: return "34B";
+        case LLM_TYPE_35B: return "35B";
+        case LLM_TYPE_36B: return "36B";
+        case LLM_TYPE_40B: return "40B";
+        case LLM_TYPE_65B: return "65B";
+        case LLM_TYPE_70B: return "70B";
+        case LLM_TYPE_120B: return "120B";
+        case LLM_TYPE_142B: return "142B";
+        case LLM_TYPE_236B: return "236B";
+        case LLM_TYPE_290B: return "290B";
+        case LLM_TYPE_314B: return "314B";
+        case LLM_TYPE_405B: return "405B";
+        case LLM_TYPE_671B: return "671B";
+        case LLM_TYPE_SMALL: return "Small";
+        case LLM_TYPE_MEDIUM: return "Medium";
+        case LLM_TYPE_LARGE: return "Large";
+        case LLM_TYPE_XL: return "XL";
+        case LLM_TYPE_A1_7B: return "A1.7B";
+        case LLM_TYPE_A2_7B: return "A2.7B";
+        case LLM_TYPE_8x7B: return "8x7B";
+        case LLM_TYPE_8x22B: return "8x22B";
+        case LLM_TYPE_16x12B: return "16x12B";
+        case LLM_TYPE_16x3_8B: return "16x3.8B";
+        case LLM_TYPE_10B_128x3_66B: return "10B_128x3.66B";
+        case LLM_TYPE_57B_A14B: return "57B_A14B";
+        case LLM_TYPE_17B_16E: return "17B_16E";
+        case LLM_TYPE_17B_128E: return "17B_128E";
+        case LLM_TYPE_A13B: return "A13B";
+        case LLM_TYPE_7B_A1B: return "7B_A1B";
+        case LLM_TYPE_8B_A1B: return "8B_A1B";
+        case LLM_TYPE_16B_A1B: return "16B_A1B";
+        case LLM_TYPE_21B_A3B: return "21B_A3B";
+        case LLM_TYPE_30B_A3B: return "30B_A3B";
+        case LLM_TYPE_100B_A6B: return "100B_A6B";
+        case LLM_TYPE_106B_A12B: return "106B_A12B";
+        case LLM_TYPE_230B_A10B: return "230B_A10B";
+        case LLM_TYPE_235B_A22B: return "235B_A22B";
+        case LLM_TYPE_300B_A47B: return "300B_A47B";
+        case LLM_TYPE_355B_A32B: return "355B_A32B";
+        case LLM_TYPE_E2B: return "E2B";
+        case LLM_TYPE_E4B: return "E4B";
+        default: return "Unknown";
+    }
+}
+
+static std::string llama_rope_scaling_type_name(llama_rope_scaling_type rope_scaling_type) {
+    switch (rope_scaling_type) {
+        case LLAMA_ROPE_SCALING_TYPE_NONE: return "none";
+        case LLAMA_ROPE_SCALING_TYPE_LINEAR: return "linear";
+        case LLAMA_ROPE_SCALING_TYPE_YARN: return "yarn";
+        case LLAMA_ROPE_SCALING_TYPE_LONGROPE: return "longrope";
+        case LLAMA_ROPE_SCALING_TYPE_NTK: return "ntk";
+        default: return "unknown";
+    }
+}
 
 // Device management functions
 ggml_backend_dev_t llama_model::dev_layer(int il) const {

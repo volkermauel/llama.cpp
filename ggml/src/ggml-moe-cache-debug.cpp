@@ -78,10 +78,10 @@ void ggml_moe_log_cache_stats(const ggml_moe_cache* cache) {
     
     std::lock_guard<std::mutex> lock(g_moe_debug_mutex);
     printf("[MoE Cache] Statistics:\n");
-    printf("  Total size: %zu MB\n", cache->stats.total_size / (1024 * 1024));
     printf("  Current size: %zu MB\n", cache->stats.current_size / (1024 * 1024));
+    printf("  Peak size: %zu MB\n", cache->stats.peak_size / (1024 * 1024));
     printf("  Hit rate: %.2f%%\n", cache->stats.hit_rate * 100);
-    printf("  Eviction count: %zu\n", cache->stats.eviction_count);
+    printf("  Eviction count: %zu\n", cache->stats.evictions);
 }
 
 void ggml_moe_log_layer_assignment(int layer_id, const char* device_type, const char* layer_type) {
@@ -112,7 +112,6 @@ void ggml_moe_log_warning(int layer_id, int expert_id, const char* message) {
     GGML_MOE_LOG_IF_ENABLED(warning, "[MoE Cache] WARNING for expert %s: %s\n",
                             ggml_moe_format_expert_key(layer_id, expert_id).c_str(), message);
 }
-
 void ggml_moe_log_performance_metrics(const ggml_moe_cache* cache) {
     if (!cache || !g_moe_debug_config.enable_performance_logging) {
         return;
@@ -120,9 +119,9 @@ void ggml_moe_log_performance_metrics(const ggml_moe_cache* cache) {
     
     std::lock_guard<std::mutex> lock(g_moe_debug_mutex);
     printf("[MoE Cache] Performance Metrics:\n");
-    printf("  Average load time: %.2f ms\n", cache->stats.avg_load_time_ms);
-    printf("  Average prefetch time: %.2f ms\n", cache->stats.avg_prefetch_time_ms);
-    printf("  Cache efficiency: %.2f%%\n", cache->stats.cache_efficiency * 100);
+    printf("  Average load time: %.2f ms\n", cache->stats.avg_load_time);
+    printf("  Average transfer time: %.2f ms\n", cache->stats.avg_transfer_time_ms);
+    printf("  Prefetch accuracy: %.2f%%\n", cache->stats.prefetch_accuracy * 100);
 }
 
 // Phase 5: Enhanced statistics reporting with Phase 5 metrics
@@ -137,14 +136,14 @@ void ggml_moe_log_cache_stats_phase5(const ggml_moe_cache* cache) {
     printf("Current Usage: %zu MB (%.1f%%)\n", 
            cache->stats.current_size / (1024 * 1024),
            (double)cache->stats.current_size / cache->config.max_cache_size * 100);
-    printf("Total Hits: %zu\n", cache->stats.total_hits);
-    printf("Total Misses: %zu\n", cache->stats.total_misses);
+    printf("Total Hits: %zu\n", cache->stats.cache_hits);
+    printf("Total Misses: %zu\n", cache->stats.cache_misses);
     printf("Hit Rate: %.2f%%\n", cache->stats.hit_rate * 100);
-    printf("Eviction Count: %zu\n", cache->stats.eviction_count);
+    printf("Eviction Count: %zu\n", cache->stats.evictions);
     printf("Prefetch Hits: %zu\n", cache->stats.prefetch_hits);
     printf("Prefetch Accuracy: %.2f%%\n", cache->stats.prefetch_accuracy * 100);
-    printf("Average Load Time: %.2f ms\n", cache->stats.avg_load_time_ms);
-    printf("Average Prefetch Time: %.2f ms\n", cache->stats.avg_prefetch_time_ms);
-    printf("Memory Pressure Events: %zu\n", cache->stats.memory_pressure_events);
+    printf("Average Load Time: %.2f ms\n", cache->stats.avg_load_time);
+    printf("Average Transfer Time: %.2f ms\n", cache->stats.avg_transfer_time_ms);
+    printf("Async Operations Completed: %zu\n", cache->stats.async_operations_completed);
     printf("====================================\n");
 }

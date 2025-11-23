@@ -82,12 +82,16 @@ void ggml_mul_mat_id_cached(
         if (!next_experts.empty()) {
             // Group predictions by layer for efficient prefetching
             std::unordered_map<int, std::vector<int>> experts_by_layer;
-            for (const auto& [pred_layer_id, pred_expert_id] : next_experts) {
+            for (const auto& prediction : next_experts) {
+                int pred_layer_id = prediction.first;
+                int pred_expert_id = prediction.second;
                 experts_by_layer[pred_layer_id].push_back(pred_expert_id);
             }
             
             // Prefetch for each layer
-            for (const auto& [pred_layer_id, expert_ids] : experts_by_layer) {
+            for (const auto& layer_experts : experts_by_layer) {
+                int pred_layer_id = layer_experts.first;
+                const std::vector<int>& expert_ids = layer_experts.second;
                 cache->impl->prefetch_experts_async(
                     cache,
                     pred_layer_id,
