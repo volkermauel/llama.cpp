@@ -2733,20 +2733,10 @@ const char * llama_arch_name(llm_arch arch) {
     return llm_arch_name(arch);
 }
 
-// llama_rope_scaling_type enum - must match llama.h
-enum llama_rope_scaling_type {
-    LLAMA_ROPE_SCALING_TYPE_UNSPECIFIED = -1,
-    LLAMA_ROPE_SCALING_TYPE_NONE        = 0,
-    LLAMA_ROPE_SCALING_TYPE_LINEAR      = 1,
-    LLAMA_ROPE_SCALING_TYPE_YARN        = 2,
-    LLAMA_ROPE_SCALING_TYPE_DYNAMIC     = 3,
-};
-
 static const std::map<std::string, llama_rope_scaling_type> LLAMA_ROPE_SCALING_TYPES = {
     {"none",     LLAMA_ROPE_SCALING_TYPE_NONE},
     {"linear",   LLAMA_ROPE_SCALING_TYPE_LINEAR},
     {"yarn",     LLAMA_ROPE_SCALING_TYPE_YARN},
-    {"dynamic",  LLAMA_ROPE_SCALING_TYPE_DYNAMIC},
 };
 
 llama_rope_scaling_type llama_rope_scaling_type_from_string(const std::string & name) {
