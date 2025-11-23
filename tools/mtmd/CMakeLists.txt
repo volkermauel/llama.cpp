@@ -27,6 +27,8 @@ target_compile_features   (mtmd PRIVATE cxx_std_17)
 
 if (BUILD_SHARED_LIBS)
     set_target_properties     (mtmd PROPERTIES POSITION_INDEPENDENT_CODE ON)
+    target_compile_definitions(mtmd PUBLIC  MTMD_SHARED)
+    target_compile_definitions(mtmd PRIVATE MTMD_BUILD)
     # Do NOT define LLAMA_SHARED for mtmd - it's not the llama library
     # mtmd links against llama library, so it should import symbols from llama.dll
     # The LLAMA_API macro in include/llama.h will handle the import correctly
