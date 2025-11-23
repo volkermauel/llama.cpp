@@ -24,19 +24,10 @@
  * For the usage, see an example in mtmd-cli.cpp
  */
 
-#ifdef LLAMA_SHARED
-#    if defined(_WIN32) && !defined(__MINGW32__)
-#        ifdef LLAMA_BUILD
-#            define MTMD_API __declspec(dllexport)
-#        else
-#            define MTMD_API __declspec(dllimport)
-#        endif
-#    else
-#        define MTMD_API __attribute__ ((visibility ("default")))
-#    endif
-#else
-#    define MTMD_API
-#endif
+// Do NOT use MTMD_SHARED/MTMD_BUILD - mtmd is not the llama library
+// mtmd links against llama library, so it should import symbols from llama.dll
+// The LLAMA_API macro in include/llama.h will handle the import correctly
+#define MTMD_API
 
 // deprecated marker, use mtmd_default_marker() instead
 #define MTMD_DEFAULT_IMAGE_MARKER "<__image__>"
