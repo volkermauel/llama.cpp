@@ -458,8 +458,8 @@ struct llama_model {
 
     std::vector<llama_layer> layers;
 
-    // MoE cache for expert offloading and caching
-    ggml_moe_cache* moe_cache = nullptr;
+    // MoE cache for expert offloading and caching (mutable so it can be set up during context construction)
+    mutable ggml_moe_cache* moe_cache = nullptr;
 
     //Dense linear projections for SentenceTransformers models like embeddinggemma
     // For Sentence Transformers models structure see
@@ -554,6 +554,7 @@ private:
 
         buft_list_t cpu_buft_list;
         std::map<ggml_backend_dev_t, buft_list_t> gpu_buft_list;
+        ggml_backend_ptr moe_cache_backend;
 
         struct layer_dev {
             ggml_backend_dev_t dev;

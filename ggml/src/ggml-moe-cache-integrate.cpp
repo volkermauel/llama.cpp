@@ -56,6 +56,11 @@ void ggml_mul_mat_id_cached(
     const ggml_tensor* src0 = dst->src[0];  // Expert weights [n_experts, ...]
     const ggml_tensor* src1 = dst->src[1];  // Input tokens
     const ggml_tensor* ids = dst->src[2];   // Expert IDs
+
+    // Keep the cache aware of the current expert tensor so size calculations remain correct
+    if (cache && src0) {
+        cache->expert_source = src0;
+    }
     
     if (!src0 || !src1 || !ids) {
         return;

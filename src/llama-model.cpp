@@ -411,7 +411,12 @@ llama_model::llama_model(const llama_model_params & params) : params(params), pi
     pimpl->has_tensor_overrides = params.tensor_buft_overrides && params.tensor_buft_overrides[0].pattern;
 }
 
-llama_model::~llama_model() {}
+llama_model::~llama_model() {
+    if (moe_cache) {
+        ggml_moe_cache_free(moe_cache);
+        moe_cache = nullptr;
+    }
+}
 
 void llama_model::load_stats(llama_model_loader & ml) {
     pimpl->n_elements = ml.n_elements;
@@ -2181,6 +2186,74 @@ void llama_model::load_vocab(llama_model_loader & ml) {
     vocab.load(ml, kv);
 }
 
+static ggml_tensor * find_first_moe_expert_tensor(const std::vector<llama_layer> & layers) {
+    for (const auto & layer : layers) {
+        if (layer.ffn_gate_exps) {
+            return layer.ffn_gate_exps;
+        }
+        if (layer.ffn_up_exps) {
+            return layer.ffn_up_exps;
+        }
+        if (layer.ffn_down_exps) {
+            return layer.ffn_down_exps;
+        }
+    }
+    return nullptr;
+}
+
+static ggml_moe_cache_config build_moe_cache_config(const llama_moe_cache_params & params, const ggml_tensor * expert_tensor, int n_expert_total) {
+    ggml_moe_cache_config config = {};
+
+    config.enable_prefetch      = params.enable_prefetch;
+    config.prefetch_depth       = params.prefetch_depth;
+    config.enable_stats         = params.enable_stats;
+    config.eviction_threshold   = params.eviction_threshold;
+    config.enable_compression   = params.compression_type != GGML_MOE_COMPRESSION_NONE;
+    config.default_type         = params.compression_type;
+    config.enable_auto_selection= params.enable_auto_selection;
+    config.compression_threshold= params.compression_threshold;
+    config.enable_fp16_packing  = params.enable_fp16_packing;
+    config.lz4_compression_level= params.lz4_compression_level;
+    config.enable_sparse_detection = params.enable_auto_selection;
+    config.sparsity_threshold   = params.sparsity_threshold;
+    config.enable_ml_prefetch   = params.enable_ml_prefetch;
+    config.ml_model_cache_dir   = params.ml_model_cache_dir;
+    config.ml_learning_rate     = params.ml_learning_rate;
+    config.ml_enable_persistence= params.ml_enable_persistence;
+    config.ml_reset_on_startup  = params.ml_reset_on_startup;
+    config.ml_accuracy_threshold= params.ml_accuracy_threshold;
+
+    size_t  per_expert_bytes    = 0;
+    int64_t n_experts_in_tensor = expert_tensor ? expert_tensor->ne[2] : 0;
+    if (expert_tensor && n_experts_in_tensor > 0) {
+        per_expert_bytes = ggml_nbytes(expert_tensor) / (size_t) n_experts_in_tensor;
+    }
+
+    int max_experts = params.n_gpu_experts >= 0 ? params.n_gpu_experts : n_expert_total;
+    if (max_experts < 0) {
+        max_experts = n_expert_total;
+    }
+    config.max_experts = max_experts;
+
+    size_t budget_from_count = (per_expert_bytes > 0 && max_experts > 0) ? per_expert_bytes * (size_t) max_experts : 0;
+    if (params.vram_budget > 0) {
+        config.max_cache_size = params.vram_budget;
+    } else {
+        config.max_cache_size = budget_from_count;
+    }
+
+    if (config.max_cache_size == 0 && per_expert_bytes > 0 && n_expert_total > 0) {
+        config.max_cache_size = per_expert_bytes * (size_t) std::min(max_experts > 0 ? max_experts : n_expert_total, n_expert_total);
+    }
+
+    if (config.max_cache_size == 0) {
+        // Fallback budget to avoid a zero-sized cache
+        config.max_cache_size = 1ULL << 30; // 1 GiB
+    }
+
+    return config;
+}
+
 bool llama_model::load_tensors(llama_model_loader & ml) {
     // Validate MoE parameters before proceeding
     if (params.moe_cache_params) {
@@ -2491,11 +2564,10 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
             // 1. We have a GPU buffer type (layer is on GPU via -ngl)
             // 2. MoE expert limiting is enabled (--moe-gpu-experts >= 0)
             // 3. This is an expert tensor
-            if (buft != ggml_backend_cpu_buffer_type() &&
-                params.moe_cache_params &&
+            if (params.moe_cache_params &&
                 params.moe_cache_params->n_gpu_experts >= 0 &&
                 hparams.n_expert > 0) {
-                
+
                 // Check if this is an expert tensor that should be managed by MoE cache
                 bool is_expert_tensor = (tn.tensor == LLM_TENSOR_FFN_GATE_EXPS ||
                                         tn.tensor == LLM_TENSOR_FFN_DOWN_EXPS ||
@@ -2503,22 +2575,13 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
                                         tn.tensor == LLM_TENSOR_FFN_GATE_CHEXPS ||
                                         tn.tensor == LLM_TENSOR_FFN_DOWN_CHEXPS ||
                                         tn.tensor == LLM_TENSOR_FFN_UP_CHEXPS);
-                
+
                 if (is_expert_tensor && info.layer == LLM_TENSOR_LAYER_REPEATING) {
-                    // For expert tensors, we need to decide whether to keep them on GPU or CPU
-                    // based on the MoE cache configuration
-                    if (params.moe_cache_params->n_gpu_experts == 0) {
-                        // If n_gpu_experts is 0, keep all experts in system RAM
-                        // They will be streamed to GPU dynamically when needed
-                        buft = ggml_backend_cpu_buffer_type();
-                        LLAMA_LOG_INFO("%s: expert tensor %s in layer %d assigned to CPU (will be streamed to GPU dynamically, n_gpu_experts=%d)\n",
-                                       __func__, tn.str().c_str(), tn.bid, params.moe_cache_params->n_gpu_experts);
-                    } else {
-                        // Keep expert tensors on GPU - the MoE cache system will handle the limiting
-                        // The actual expert limiting happens during computation, not during tensor loading
-                        LLAMA_LOG_INFO("%s: expert tensor %s in layer %d on GPU (will be managed by MoE cache system, n_gpu_experts=%d)\n",
-                                       __func__, tn.str().c_str(), tn.bid, params.moe_cache_params->n_gpu_experts);
-                    }
+                    // Always keep expert tensors in system RAM when MoE caching is requested.
+                    // The cache will stream the required experts to GPU up to the configured budget.
+                    buft = ggml_backend_cpu_buffer_type();
+                    LLAMA_LOG_INFO("%s: expert tensor %s in layer %d kept on CPU for MoE cache streaming (n_gpu_experts=%d)\n",
+                                   __func__, tn.str().c_str(), tn.bid, params.moe_cache_params->n_gpu_experts);
                 }
             }
 
@@ -6579,6 +6642,73 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
     if (use_mmap_buffer) {
         for (auto & mapping : ml.mappings) {
             pimpl->mappings.emplace_back(std::move(mapping));
+        }
+    }
+
+    // Initialize MoE cache after tensors are available
+    if (!params.vocab_only &&
+        hparams.n_expert > 0 &&
+        params.moe_cache_params &&
+        params.moe_cache_params->enable_cache &&
+        params.moe_cache_params->n_gpu_experts >= 0) {
+
+        if (params.moe_cache_params->force_cpu) {
+            LLAMA_LOG_INFO("%s: MoE cache skipped because --moe-force-cpu was requested\n", __func__);
+            return true;
+        }
+
+        if (params.moe_cache_params->n_gpu_experts == 0) {
+            LLAMA_LOG_INFO("%s: MoE cache disabled explicitly with --moe-gpu-experts 0\n", __func__);
+        } else if (moe_cache == nullptr) {
+            ggml_tensor * expert_tensor = find_first_moe_expert_tensor(layers);
+            if (!expert_tensor) {
+                LLAMA_LOG_WARN("%s: MoE cache requested but no expert tensor was found\n", __func__);
+                return true;
+            }
+
+            ggml_backend_dev_t cache_dev = nullptr;
+            for (auto * dev : devices) {
+                if (ggml_backend_dev_type(dev) == GGML_BACKEND_DEVICE_TYPE_GPU ||
+                    ggml_backend_dev_type(dev) == GGML_BACKEND_DEVICE_TYPE_IGPU) {
+                    cache_dev = dev;
+                    break;
+                }
+            }
+
+            if (!cache_dev) {
+                LLAMA_LOG_WARN("%s: MoE cache requested but no GPU device is available\n", __func__);
+                return true;
+            }
+
+            pimpl->moe_cache_backend.reset(ggml_backend_dev_init(cache_dev, nullptr));
+            if (!pimpl->moe_cache_backend) {
+                LLAMA_LOG_WARN("%s: failed to initialize backend for MoE cache\n", __func__);
+                return true;
+            }
+
+            ggml_moe_cache_config cache_config = build_moe_cache_config(
+                *params.moe_cache_params,
+                expert_tensor,
+                hparams.n_expert);
+
+            const int expert_count = expert_tensor->ne[2] > 0 ? (int) expert_tensor->ne[2] : hparams.n_expert;
+            const size_t per_expert_bytes = (expert_tensor->ne[2] > 0) ? ggml_nbytes(expert_tensor) / (size_t) expert_tensor->ne[2] : 0;
+            moe_cache = ggml_moe_cache_init(
+                pimpl->moe_cache_backend.get(),
+                &cache_config,
+                hparams.n_layer,
+                expert_count);
+
+            if (!moe_cache) {
+                LLAMA_LOG_WARN("%s: failed to create MoE cache, continuing without caching\n", __func__);
+            } else {
+                moe_cache->expert_source = expert_tensor;
+                LLAMA_LOG_INFO("%s: MoE cache ready (budget: %.2f MiB, max experts: %d, ~%.2f MiB per expert)\n",
+                               __func__,
+                               cache_config.max_cache_size / 1024.0 / 1024.0,
+                               cache_config.max_experts,
+                               per_expert_bytes / 1024.0 / 1024.0);
+            }
         }
     }
 
