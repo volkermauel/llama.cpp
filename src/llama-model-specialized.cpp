@@ -42,8 +42,7 @@
 const char * llama_arch_name(llm_arch arch);
 
 // Mamba architecture hyperparameter loading
-static void llama_load_hparams_mamba2(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
-    GGML_UNUSED(arch);
+static void llama_load_hparams_mamba(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
     GGML_UNUSED(arch);
     ml.get_key(LLM_KV_SSM_CONV_KERNEL,    hparams.ssm_d_conv);
     ml.get_key(LLM_KV_SSM_INNER_SIZE,     hparams.ssm_d_inner);
@@ -868,79 +867,6 @@ static void llama_load_hparams_pangu_embed(llama_model_loader & ml, llama_hparam
 }
 
 
-// Main dispatch function for specialized architectures
-void llama_load_hparams_specialized(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch, uint32_t n_vocab) {
-    GGML_UNUSED(n_vocab);
-
-    switch (arch) {
-        case LLM_ARCH_MAMBA:          llama_load_hparams_mamba(ml, hparams, type, arch); break;
-        case LLM_ARCH_MAMBA2:         llama_load_hparams_mamba2(ml, hparams, type, arch); break;
-        case LLM_ARCH_JAMBA:          llama_load_hparams_jamba(ml, hparams, type, arch); break;
-        case LLM_ARCH_T5:             llama_load_hparams_t5(ml, hparams, type, arch); break;
-        case LLM_ARCH_T5ENCODER:      llama_load_hparams_t5(ml, hparams, type, arch); break;
-        case LLM_ARCH_CHATGLM:        llama_load_hparams_chatglm(ml, hparams, type, arch); break;
-        case LLM_ARCH_GLM4:           llama_load_hparams_glm4(ml, hparams, type, arch); break;
-        case LLM_ARCH_RWKV6:          llama_load_hparams_rwkv6(ml, hparams, type, arch); break;
-        case LLM_ARCH_RWKV6QWEN2:     llama_load_hparams_rwkv6(ml, hparams, type, arch); break;
-        case LLM_ARCH_RWKV7:          llama_load_hparams_rwkv7(ml, hparams, type, arch); break;
-        case LLM_ARCH_ARWKV7:         llama_load_hparams_rwkv7(ml, hparams, type, arch); break;
-        case LLM_ARCH_PLAMO2:         llama_load_hparams_plamo2(ml, hparams, type, arch); break;
-        case LLM_ARCH_XVERSE:         llama_load_hparams_xverse(ml, hparams, type, arch); break;
-        case LLM_ARCH_COMMAND_R:      llama_load_hparams_command_r(ml, hparams, type, arch); break;
-        case LLM_ARCH_COHERE2:        llama_load_hparams_cohere2(ml, hparams, type, arch); break;
-        case LLM_ARCH_OLMO:           llama_load_hparams_olmo(ml, hparams, type, arch); break;
-        case LLM_ARCH_OLMO2:          llama_load_hparams_olmo2(ml, hparams, type, arch); break;
-        case LLM_ARCH_SEED_OSS:       llama_load_hparams_seed_oss(ml, hparams, type, arch); break;
-        case LLM_ARCH_PLM:            llama_load_hparams_plm(ml, hparams, type, arch); break;
-        case LLM_ARCH_BITNET:         llama_load_hparams_bitnet(ml, hparams, type, arch); break;
-        case LLM_ARCH_INTERNLM2:      llama_load_hparams_internlm2(ml, hparams, type, arch); break;
-        case LLM_ARCH_PHI2:           llama_load_hparams_phi2(ml, hparams, type, arch); break;
-        case LLM_ARCH_PHI3:           llama_load_hparams_phi3(ml, hparams, type, arch); break;
-        case LLM_ARCH_PLAMO:          llama_load_hparams_plamo(ml, hparams, type, arch); break;
-        case LLM_ARCH_DREAM:          llama_load_hparams_dream(ml, hparams, type, arch); break;
-        case LLM_ARCH_LLADA:          llama_load_hparams_llada(ml, hparams, type, arch); break;
-        case LLM_ARCH_LLADA_MOE:      llama_load_hparams_llada_moe(ml, hparams, type, arch); break;
-        case LLM_ARCH_QWEN:           llama_load_hparams_qwen(ml, hparams, type, arch); break;
-        case LLM_ARCH_QWEN2:          llama_load_hparams_qwen2(ml, hparams, type, arch); break;
-        case LLM_ARCH_QWEN2VL:        llama_load_hparams_qwen2vl(ml, hparams, type, arch); break;
-        case LLM_ARCH_QWEN3:          llama_load_hparams_qwen3(ml, hparams, type, arch); break;
-        case LLM_ARCH_QWEN3VL:        llama_load_hparams_qwen3vl(ml, hparams, type, arch); break;
-        case LLM_ARCH_GEMMA:          llama_load_hparams_gemma(ml, hparams, type, arch); break;
-        case LLM_ARCH_GEMMA2:         llama_load_hparams_gemma2(ml, hparams, type, arch); break;
-        case LLM_ARCH_GEMMA3:         llama_load_hparams_gemma3(ml, hparams, type, arch); break;
-        case LLM_ARCH_GEMMA3N:        llama_load_hparams_gemma3n(ml, hparams, type, arch); break;
-        case LLM_ARCH_GEMMA_EMBEDDING: llama_load_hparams_gemma_embedding(ml, hparams, type, arch); break;
-        case LLM_ARCH_STARCODER2:     llama_load_hparams_starcoder2(ml, hparams, type, arch); break;
-        case LLM_ARCH_JAIS:           llama_load_hparams_jais(ml, hparams, type, arch); break;
-        case LLM_ARCH_NEMOTRON:       llama_load_hparams_nemotron(ml, hparams, type, arch); break;
-        case LLM_ARCH_NEMOTRON_H:     llama_load_hparams_nemotron_h(ml, hparams, type, arch); break;
-        case LLM_ARCH_EXAONE:         llama_load_hparams_exaone(ml, hparams, type, arch); break;
-        case LLM_ARCH_EXAONE4:        llama_load_hparams_exaone4(ml, hparams, type, arch); break;
-        case LLM_ARCH_CHAMELEON:      llama_load_hparams_chameleon(ml, hparams, type, arch); break;
-        case LLM_ARCH_WAVTOKENIZER_DEC: llama_load_hparams_wavtokenizer_dec(ml, hparams, type, arch); break;
-        case LLM_ARCH_DOTS1:          llama_load_hparams_dots1(ml, hparams, type, arch); break;
-        case LLM_ARCH_ERNIE4_5:       llama_load_hparams_ernie45(ml, hparams, type, arch); break;
-        case LLM_ARCH_ERNIE4_5_MOE:   llama_load_hparams_ernie45_moe(ml, hparams, type, arch); break;
-        case LLM_ARCH_FALCON_H1:      llama_load_hparams_falcon_h1(ml, hparams, type, arch); break;
-        case LLM_ARCH_HUNYUAN_MOE:    llama_load_hparams_hunyuan_moe(ml, hparams, type, arch); break;
-        case LLM_ARCH_HUNYUAN_DENSE:  llama_load_hparams_hunyuan_dense(ml, hparams, type, arch); break;
-        case LLM_ARCH_SMOLLM3:        llama_load_hparams_smollm3(ml, hparams, type, arch); break;
-        case LLM_ARCH_OPENAI_MOE:     // Handled in MoE family
-        case LLM_ARCH_LFM2:           llama_load_hparams_lfm2(ml, hparams, type, arch); break;
-        case LLM_ARCH_LFM2MOE:        // Handled in MoE family
-        case LLM_ARCH_SMALLTHINKER:   llama_load_hparams_smallthinker(ml, hparams, type, arch); break;
-        case LLM_ARCH_GROVEMOE:       // Handled in MoE family
-        case LLM_ARCH_APERTUS:        llama_load_hparams_apertus(ml, hparams, type, arch); break;
-        case LLM_ARCH_MINIMAX_M2:     llama_load_hparams_minimax_m2(ml, hparams, type, arch); break;
-        case LLM_ARCH_COGVLM:         llama_load_hparams_cogvlm(ml, hparams, type, arch); break;
-        case LLM_ARCH_PANGU_EMBED:    llama_load_hparams_pangu_embed(ml, hparams, type, arch); break;
-        case LLM_ARCH_ARCEE:          // Handled in LLaMA family
-        case LLM_ARCH_AFMOE:          // Handled in LLaMA family
-            break;
-        default:
-            throw std::runtime_error(format("Architecture %s not handled by specialized loader", llama_arch_name(arch)));
-    }
-}
 // Main dispatch function for specialized architectures
 void llama_load_hparams_specialized(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch, uint32_t n_vocab) {
     GGML_UNUSED(n_vocab);

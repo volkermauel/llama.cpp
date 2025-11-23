@@ -55,8 +55,7 @@ static void llama_load_hparams_bert(llama_model_loader & ml, llama_hparams & hpa
 }
 
 // Jina BERT v2 architecture hyperparameter loading
-static void llama_load_hparams_jina_bert_v3(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
-    GGML_UNUSED(arch);
+static void llama_load_hparams_jina_bert_v2(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
     GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS,    hparams.f_norm_eps);
     ml.get_key(LLM_KV_ATTENTION_CAUSAL,           hparams.causal_attn);
