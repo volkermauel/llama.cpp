@@ -7660,7 +7660,7 @@ int32_t llama_model_n_embd(const llama_model * model) {
     return model->hparams.n_embd;
 }
 
-int32_t llama_model_n_embd_inp(const llama_model * model) {
+LLAMA_API int32_t llama_model_n_embd_inp(const llama_model * model) {
     return model->hparams.n_embd_inp();
 }
 
