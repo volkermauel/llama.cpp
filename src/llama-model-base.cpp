@@ -447,5 +447,5 @@ int32_t llama_model_n_ctx_train(const llama_model * model) {
 
 // Forward declarations for load_hparams functions - these are implemented in llama-model-load.cpp
 void llama_load_hparams_bert_family(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch);
-void llama_load_hparams_moe_family(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch, unsigned int n_layer);
-void llama_load_hparams_specialized(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch, unsigned int n_layer);
+void llama_load_hparams_moe_family(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch, uint32_t n_vocab);
+void llama_load_hparams_specialized(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch, uint32_t n_vocab);
