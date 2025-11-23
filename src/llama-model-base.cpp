@@ -27,175 +27,16 @@
 #include <sstream>
 #include <stdexcept>
 
+// Forward declarations for buffer type management functions
+using buft_list_t = std::vector<std::pair<ggml_backend_dev_t, ggml_backend_buffer_type_t>>;
+
+static bool weight_buft_supported(const llama_hparams& hparams, ggml_tensor * w, ggml_op op, ggml_backend_buffer_type_t buft, ggml_backend_dev_t dev);
+static ggml_backend_buffer_type_t select_weight_buft(const llama_hparams & hparams, ggml_tensor * tensor, ggml_op op, const buft_list_t & buft_list);
+static buft_list_t make_cpu_buft_list(const std::vector<ggml_backend_dev_t> & devices, bool use_extra_bufts, bool no_host);
+static buft_list_t make_gpu_buft_list(ggml_backend_dev_t dev, llama_split_mode split_mode, const float * tensor_split);
+
 // Forward declarations for external functions
 const char * llama_arch_name(llm_arch arch);
-
-// External function declarations that need to be defined here
-extern const char * llama_arch_name(llm_arch arch);
-
-// Missing function definitions
-const char * llama_arch_name(llm_arch arch) {
-    switch (arch) {
-        case LLM_ARCH_LLAMA:        return "llama";
-        case LLM_ARCH_FALCON:       return "falcon";
-        case LLM_ARCH_GPT2:         return "gpt2";
-        case LLM_ARCH_GPTJ:         return "gptj";
-        case LLM_ARCH_GPTNEOX:      return "gptneox";
-        case LLM_ARCH_MPT:          return "mpt";
-        case LLM_ARCH_STARCODER:    return "starcoder";
-        case LLM_ARCH_REFACT:       return "refact";
-        case LLM_ARCH_BERT:         return "bert";
-        case LLM_ARCH_NOMIC_BERT:   return "nomic-bert";
-        case LLM_ARCH_JINA_BERT_V2: return "jina-bert-v2";
-        case LLM_ARCH_BLOOM:        return "bloom";
-        case LLM_ARCH_STABLELM:     return "stablelm";
-        case LLM_ARCH_QWEN:         return "qwen";
-        case LLM_ARCH_QWEN2:        return "qwen2";
-        case LLM_ARCH_QWEN2MOE:     return "qwen2moe";
-        case LLM_ARCH_PHI2:         return "phi2";
-        case LLM_ARCH_PHI3:         return "phi3";
-        case LLM_ARCH_PLAMO:        return "plamo";
-        case LLM_ARCH_CODESHELL:    return "codeshell";
-        case LLM_ARCH_ORION:        return "orion";
-        case LLM_ARCH_INTERNLM2:    return "internlm2";
-        case LLM_ARCH_MINICPM:      return "minicpm";
-        case LLM_ARCH_GEMMA:        return "gemma";
-        case LLM_ARCH_GEMMA2:       return "gemma2";
-        case LLM_ARCH_GEMMA3:       return "gemma3";
-        case LLM_ARCH_STARCODER2:   return "starcoder2";
-        case LLM_ARCH_MAMBA:        return "mamba";
-        case LLM_ARCH_XVERSE:       return "xverse";
-        case LLM_ARCH_COMMAND_R:    return "command-r";
-        case LLM_ARCH_DBRX:         return "dbrx";
-        case LLM_ARCH_OLMO:         return "olmo";
-        case LLM_ARCH_OLMO2:        return "olmo2";
-        case LLM_ARCH_ARCTIC:       return "arctic";
-        case LLM_ARCH_DEEPSEEK:     return "deepseek";
-        case LLM_ARCH_DEEPSEEK2:    return "deepseek2";
-        case LLM_ARCH_CHATGLM:      return "chatglm";
-        case LLM_ARCH_BITNET:       return "bitnet";
-        case LLM_ARCH_T5:           return "t5";
-        case LLM_ARCH_JAIS:         return "jais";
-        case LLM_ARCH_NEMOTRON:     return "nemotron";
-        case LLM_ARCH_EXAONE:       return "exaone";
-        case LLM_ARCH_RWKV6:        return "rwkv6";
-        case LLM_ARCH_RWKV6QWEN2:   return "rwkv6qwen2";
-        case LLM_ARCH_RWKV7:        return "rwkv7";
-        case LLM_ARCH_UNKNOWN:      return "unknown";
-        default:                    return "unknown";
-    }
-}
-
-//
-// Core type definitions and utilities
-//
-
-const char * llm_type_name(llm_type type) {
-    switch (type) {
-        case LLM_TYPE_14M:           return "14M";
-        case LLM_TYPE_17M:           return "17M";
-        case LLM_TYPE_22M:           return "22M";
-        case LLM_TYPE_33M:           return "33M";
-        case LLM_TYPE_60M:           return "60M";
-        case LLM_TYPE_70M:           return "70M";
-        case LLM_TYPE_80M:           return "80M";
-        case LLM_TYPE_109M:          return "109M";
-        case LLM_TYPE_137M:          return "137M";
-        case LLM_TYPE_140M:          return "140M";
-        case LLM_TYPE_160M:          return "160M";
-        case LLM_TYPE_190M:          return "190M";
-        case LLM_TYPE_220M:          return "220M";
-        case LLM_TYPE_250M:          return "250M";
-        case LLM_TYPE_256M:          return "256M";
-        case LLM_TYPE_270M:          return "270M";
-        case LLM_TYPE_335M:          return "335M";
-        case LLM_TYPE_350M:          return "350M";
-        case LLM_TYPE_360M:          return "360M";
-        case LLM_TYPE_410M:          return "410M";
-        case LLM_TYPE_450M:          return "450M";
-        case LLM_TYPE_475M:          return "475M";
-        case LLM_TYPE_558M:          return "558M";
-        case LLM_TYPE_700M:          return "700M";
-        case LLM_TYPE_770M:          return "770M";
-        case LLM_TYPE_780M:          return "780M";
-        case LLM_TYPE_950M:          return "950M";
-        case LLM_TYPE_0_3B:          return "0.3B";
-        case LLM_TYPE_0_5B:          return "0.5B";
-        case LLM_TYPE_0_6B:          return "0.6B";
-        case LLM_TYPE_1B:            return "1B";
-        case LLM_TYPE_1_2B:          return "1.2B";
-        case LLM_TYPE_1_3B:          return "1.3B";
-        case LLM_TYPE_1_4B:          return "1.4B";
-        case LLM_TYPE_1_5B:          return "1.5B";
-        case LLM_TYPE_1_6B:          return "1.6B";
-        case LLM_TYPE_1_7B:          return "1.7B";
-        case LLM_TYPE_1_8B:          return "1.8B";
-        case LLM_TYPE_2B:            return "2B";
-        case LLM_TYPE_2_6B:          return "2.6B";
-        case LLM_TYPE_2_8B:          return "2.8B";
-        case LLM_TYPE_2_9B:          return "2.9B";
-        case LLM_TYPE_3B:            return "3B";
-        case LLM_TYPE_4B:            return "4B";
-        case LLM_TYPE_6B:            return "6B";
-        case LLM_TYPE_6_9B:          return "6.9B";
-        case LLM_TYPE_7B:            return "7B";
-        case LLM_TYPE_8B:            return "8B";
-        case LLM_TYPE_9B:            return "9B";
-        case LLM_TYPE_11B:           return "11B";
-        case LLM_TYPE_12B:           return "12B";
-        case LLM_TYPE_13B:           return "13B";
-        case LLM_TYPE_14B:           return "14B";
-        case LLM_TYPE_15B:           return "15B";
-        case LLM_TYPE_16B:           return "16B";
-        case LLM_TYPE_20B:           return "20B";
-        case LLM_TYPE_26B:           return "26B";
-        case LLM_TYPE_27B:           return "27B";
-        case LLM_TYPE_30B:           return "30B";
-        case LLM_TYPE_32B:           return "32B";
-        case LLM_TYPE_34B:           return "34B";
-        case LLM_TYPE_35B:           return "35B";
-        case LLM_TYPE_36B:           return "36B";
-        case LLM_TYPE_40B:           return "40B";
-        case LLM_TYPE_65B:           return "65B";
-        case LLM_TYPE_70B:           return "70B";
-        case LLM_TYPE_120B:          return "120B";
-        case LLM_TYPE_142B:          return "142B";
-        case LLM_TYPE_236B:          return "236B";
-        case LLM_TYPE_290B:          return "290B";
-        case LLM_TYPE_314B:          return "314B";
-        case LLM_TYPE_405B:          return "405B";
-        case LLM_TYPE_671B:          return "671B";
-        case LLM_TYPE_SMALL:         return "0.1B";
-        case LLM_TYPE_MEDIUM:        return "0.4B";
-        case LLM_TYPE_LARGE:         return "0.8B";
-        case LLM_TYPE_XL:            return "1.5B";
-        case LLM_TYPE_A1_7B:         return "A1.7B";
-        case LLM_TYPE_A2_7B:         return "A2.7B";
-        case LLM_TYPE_8x7B:          return "8x7B";
-        case LLM_TYPE_8x22B:         return "8x22B";
-        case LLM_TYPE_16x12B:        return "16x12B";
-        case LLM_TYPE_16x3_8B:       return "16x3.8B";
-        case LLM_TYPE_10B_128x3_66B: return "10B+128x3.66B";
-        case LLM_TYPE_57B_A14B:      return "57B.A14B";
-        case LLM_TYPE_17B_16E:       return "17Bx16E (Scout)";
-        case LLM_TYPE_17B_128E:      return "17Bx128E (Maverick)";
-        case LLM_TYPE_A13B:          return "A13B";
-        case LLM_TYPE_7B_A1B:        return "7B.A1B";
-        case LLM_TYPE_8B_A1B:        return "8B.A1B";
-        case LLM_TYPE_16B_A1B:       return "16B.A1B";
-        case LLM_TYPE_21B_A3B:       return "21B.A3B";
-        case LLM_TYPE_30B_A3B:       return "30B.A3B";
-        case LLM_TYPE_100B_A6B:      return "100B.A6B";
-        case LLM_TYPE_106B_A12B:     return "106B.A12B";
-        case LLM_TYPE_230B_A10B:     return "230B.A10B";
-        case LLM_TYPE_235B_A22B:     return "235B.A22B";
-        case LLM_TYPE_300B_A47B:     return "300B.A47B";
-        case LLM_TYPE_355B_A32B:     return "355B.A32B";
-        case LLM_TYPE_E2B:           return "E2B";
-        case LLM_TYPE_E4B:           return "E4B";
-        default:                     return "?B";
-    }
-}
 
 static const char * llama_expert_gating_func_name(llama_expert_gating_func_type type) {
     switch (type) {
@@ -367,22 +208,6 @@ static bool weight_buft_supported(const llama_hparams& hparams, ggml_tensor * w,
     return op_supported;
 }
 
-// lists of buffer types used for each layer
-using buft_list_t = std::vector<std::pair<ggml_backend_dev_t, ggml_backend_buffer_type_t>>;
-
-// find the first buffer type in the list that can use the tensor
-ggml_backend_buffer_type_t select_weight_buft(const llama_hparams & hparams, ggml_tensor * tensor, ggml_op op, const buft_list_t & buft_list) {
-    GGML_ASSERT(!buft_list.empty());
-    for (const auto & cur : buft_list) {
-        ggml_backend_dev_t cur_dev = cur.first;
-        ggml_backend_buffer_type_t cur_buft = cur.second;
-        if (weight_buft_supported(hparams, tensor, op, cur_buft, cur_dev)) {
-            return cur_buft;
-        }
-    }
-
-    return nullptr;
-}
 
 // CPU: ACCEL -> GPU host -> CPU extra -> CPU
 buft_list_t make_cpu_buft_list(const std::vector<ggml_backend_dev_t> & devices, bool use_extra_bufts, bool no_host) {

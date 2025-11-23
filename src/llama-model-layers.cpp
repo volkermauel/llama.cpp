@@ -27,8 +27,11 @@ static llama_rope_scaling_type llama_rope_scaling_type_from_string(const std::st
 static bool weight_buft_supported(const llama_hparams & hparams, ggml_tensor * w, ggml_op op, ggml_backend_buffer_type_t buft, ggml_backend_dev_t dev);
 static ggml_backend_buffer_type_t select_weight_buft(const llama_hparams & hparams, ggml_tensor * tensor, ggml_op op, const std::vector<std::pair<ggml_backend_dev_t, ggml_backend_buffer_type_t>> & buft_list);
 
+// External function declarations
+extern const char * llama_arch_name(llm_arch arch);
+
 // Add missing function implementations
-static const char * llm_type_name(llm_type type) {
+const char * llm_type_name(llm_type type) {
     switch (type) {
         case LLM_TYPE_14M: return "14M";
         case LLM_TYPE_17M: return "17M";
@@ -135,7 +138,7 @@ static const char * llm_type_name(llm_type type) {
     }
 }
 
-static std::string llama_rope_scaling_type_name(llama_rope_scaling_type rope_scaling_type) {
+std::string llama_rope_scaling_type_name(llama_rope_scaling_type rope_scaling_type) {
     switch (rope_scaling_type) {
         case LLAMA_ROPE_SCALING_TYPE_NONE: return "none";
         case LLAMA_ROPE_SCALING_TYPE_LINEAR: return "linear";

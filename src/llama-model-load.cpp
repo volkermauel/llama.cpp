@@ -25,18 +25,38 @@
 void llama_load_hparams_llama_family(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch, uint32_t n_vocab);
 void llama_load_hparams_gpt_family(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch);
 static void llama_load_hparams_bert_family(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    // Suppress unused parameter warnings
+    (void)ml;
+    (void)hparams;
+    (void)type;
+    (void)arch;
+    
     // BERT family loading logic - architecture specific parameters only
     // General parameters (n_ff, n_head, n_layer, etc.) are already loaded in the main load_hparams function
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS, hparams.f_norm_eps);
 }
 
 static void llama_load_hparams_moe_family(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch, uint32_t n_vocab) {
+    // Suppress unused parameter warnings
+    (void)ml;
+    (void)hparams;
+    (void)type;
+    (void)arch;
+    (void)n_vocab;
+    
     // MoE family loading logic - architecture specific parameters only
     // General parameters (n_ff, n_head, n_layer, n_expert, n_expert_used) are already loaded in the main load_hparams function
     // This function can be extended for MoE-specific parameters if needed
 }
 
 static void llama_load_hparams_specialized(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch, uint32_t n_vocab) {
+    // Suppress unused parameter warnings
+    (void)ml;
+    (void)hparams;
+    (void)type;
+    (void)arch;
+    (void)n_vocab;
+    
     // Specialized architecture loading logic - architecture specific parameters only
     // General parameters (n_ff, n_head, n_layer) are already loaded in the main load_hparams function
     // This function can be extended for architecture-specific parameters if needed
@@ -261,11 +281,17 @@ void llama_model::load_hparams(llama_model_loader & ml) {
 }
 
 void llama_model::load_vocab(llama_model_loader & ml) {
+    // Suppress unused parameter warning
+    (void)ml;
+    
     // Vocabulary loading implementation will be extracted here
     // This is a placeholder for the actual vocabulary loading logic
 }
 
 bool llama_model::load_tensors(llama_model_loader & ml) {
+    // Suppress unused parameter warning
+    (void)ml;
+    
     // Tensor loading implementation will be extracted here
     // This is a placeholder for the actual tensor loading logic
     return true;
