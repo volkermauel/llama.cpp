@@ -354,14 +354,13 @@ llama_memory_i * llama_model::create_memory(const llama_memory_params & mparams,
 }
 
 // Graph building
-ggml_cgraph * llama_model::build_graph(const llm_graph_params & params) const {
+GGML_NORETURN ggml_cgraph * llama_model::build_graph(const llm_graph_params & params) const {
     // Suppress unused parameter warning
     (void)params;
     
     // Graph building implementation will be architecture-specific
     // This is a placeholder that should be overridden by architecture-specific implementations
     GGML_ABORT("build_graph not implemented for architecture %s", llama_arch_name(arch));
-    return nullptr;
 }
 
 // Internal tensor map access
