@@ -111,6 +111,7 @@ static void llama_load_hparams_mamba2(llama_model_loader & ml, llama_hparams & h
 
 // Jamba architecture hyperparameter loading
 static void llama_load_hparams_jamba(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_SSM_CONV_KERNEL,    hparams.ssm_d_conv);
     ml.get_key(LLM_KV_SSM_INNER_SIZE,     hparams.ssm_d_inner);
     ml.get_key(LLM_KV_SSM_STATE_SIZE,     hparams.ssm_d_state);
@@ -132,6 +133,7 @@ static void llama_load_hparams_jamba(llama_model_loader & ml, llama_hparams & hp
 
 // T5 architecture hyperparameter loading
 static void llama_load_hparams_t5(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
     ml.get_key(LLM_KV_ATTENTION_CAUSAL,            hparams.causal_attn);
     ml.get_key(LLM_KV_ATTENTION_CLAMP_KQV,         hparams.f_clamp_kqv, false);
@@ -150,6 +152,7 @@ static void llama_load_hparams_t5(llama_model_loader & ml, llama_hparams & hpara
 
 // ChatGLM architecture hyperparameter loading
 static void llama_load_hparams_chatglm(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
     ml.get_key(LLM_KV_ATTENTION_CLAMP_KQV,         hparams.f_clamp_kqv, false);
     ml.get_key(LLM_KV_ATTENTION_MAX_ALIBI_BIAS,    hparams.f_max_alibi_bias);
@@ -162,6 +165,7 @@ static void llama_load_hparams_chatglm(llama_model_loader & ml, llama_hparams & 
 
 // GLM4 architecture hyperparameter loading
 static void llama_load_hparams_glm4(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
     ml.get_key(LLM_KV_ATTENTION_CLAMP_KQV,         hparams.f_clamp_kqv, false);
     ml.get_key(LLM_KV_ATTENTION_MAX_ALIBI_BIAS,    hparams.f_max_alibi_bias);
@@ -175,6 +179,7 @@ static void llama_load_hparams_glm4(llama_model_loader & ml, llama_hparams & hpa
 
 // RWKV6 architecture hyperparameter loading
 static void llama_load_hparams_rwkv6(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS, hparams.f_norm_eps);
 
     switch (hparams.n_layer) {
@@ -186,6 +191,7 @@ static void llama_load_hparams_rwkv6(llama_model_loader & ml, llama_hparams & hp
 
 // RWKV7 architecture hyperparameter loading
 static void llama_load_hparams_rwkv7(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS, hparams.f_norm_eps);
 
     switch (hparams.n_layer) {
@@ -198,6 +204,7 @@ static void llama_load_hparams_rwkv7(llama_model_loader & ml, llama_hparams & hp
 
 // Plamo2 architecture hyperparameter loading
 static void llama_load_hparams_plamo2(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
 
     // Load Mamba SSM parameters
@@ -230,6 +237,7 @@ static void llama_load_hparams_plamo2(llama_model_loader & ml, llama_hparams & h
 
 // XVERSE architecture hyperparameter loading
 static void llama_load_hparams_xverse(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
     switch (hparams.n_layer) {
         case 32: type = LLM_TYPE_7B; break;
@@ -241,6 +249,7 @@ static void llama_load_hparams_xverse(llama_model_loader & ml, llama_hparams & h
 
 // Command-R architecture hyperparameter loading
 static void llama_load_hparams_command_r(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_LOGIT_SCALE,             hparams.f_logit_scale);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS, hparams.f_norm_eps);
     switch (hparams.n_layer) {
@@ -251,6 +260,7 @@ static void llama_load_hparams_command_r(llama_model_loader & ml, llama_hparams 
 
 // Cohere2 architecture hyperparameter loading
 static void llama_load_hparams_cohere2(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     hparams.swa_type = LLAMA_SWA_TYPE_STANDARD;
     hparams.set_swa_pattern(4);
 
@@ -265,6 +275,7 @@ static void llama_load_hparams_cohere2(llama_model_loader & ml, llama_hparams & 
 
 // OLMo architecture hyperparameter loading
 static void llama_load_hparams_olmo(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS, hparams.f_norm_eps);
     ml.get_key(LLM_KV_ATTENTION_CLAMP_KQV,     hparams.f_clamp_kqv, false);
 
@@ -278,6 +289,7 @@ static void llama_load_hparams_olmo(llama_model_loader & ml, llama_hparams & hpa
 
 // OLMo2 architecture hyperparameter loading
 static void llama_load_hparams_olmo2(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
 
     const bool found_swa = ml.get_key(LLM_KV_ATTENTION_SLIDING_WINDOW, hparams.n_swa, false);
@@ -299,6 +311,7 @@ static void llama_load_hparams_olmo2(llama_model_loader & ml, llama_hparams & hp
 
 // Seed OSS architecture hyperparameter loading
 static void llama_load_hparams_seed_oss(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
     switch (hparams.n_layer) {
         case 64: type = LLM_TYPE_36B; break;
@@ -308,6 +321,7 @@ static void llama_load_hparams_seed_oss(llama_model_loader & ml, llama_hparams &
 
 // PLM architecture hyperparameter loading
 static void llama_load_hparams_plm(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS, hparams.f_norm_eps);
     ml.get_key(LLM_KV_ATTENTION_CLAMP_KQV,     hparams.f_clamp_kqv, false);
 
@@ -538,6 +552,7 @@ static void llama_load_hparams_gemma2(llama_model_loader & ml, llama_hparams & h
 
 // Gemma3 architecture hyperparameter loading
 static void llama_load_hparams_gemma3(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     hparams.swa_type = LLAMA_SWA_TYPE_STANDARD;
     hparams.set_swa_pattern(6);
 
@@ -564,6 +579,7 @@ static void llama_load_hparams_gemma3(llama_model_loader & ml, llama_hparams & h
 
 // Gemma3N architecture hyperparameter loading
 static void llama_load_hparams_gemma3n(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     hparams.swa_type = LLAMA_SWA_TYPE_STANDARD;
     hparams.set_swa_pattern(5);
 
@@ -584,6 +600,7 @@ static void llama_load_hparams_gemma3n(llama_model_loader & ml, llama_hparams & 
 
 // Gemma Embedding architecture hyperparameter loading
 static void llama_load_hparams_gemma_embedding(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     hparams.swa_type = LLAMA_SWA_TYPE_SYMMETRIC;
     hparams.set_swa_pattern(6);
 
@@ -613,6 +630,7 @@ static void llama_load_hparams_gemma_embedding(llama_model_loader & ml, llama_hp
 
 // StarCoder2 architecture hyperparameter loading
 static void llama_load_hparams_starcoder2(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS, hparams.f_norm_eps);
     switch (hparams.n_layer) {
         case 30: type = LLM_TYPE_3B; break;
@@ -626,6 +644,7 @@ static void llama_load_hparams_starcoder2(llama_model_loader & ml, llama_hparams
 
 // JAIS architecture hyperparameter loading
 static void llama_load_hparams_jais(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS, hparams.f_norm_eps);
     ml.get_key(LLM_KV_ATTENTION_CLAMP_KQV,     hparams.f_clamp_kqv, false);
     ml.get_key(LLM_KV_ATTENTION_MAX_ALIBI_BIAS, hparams.f_max_alibi_bias);
@@ -638,6 +657,7 @@ static void llama_load_hparams_jais(llama_model_loader & ml, llama_hparams & hpa
 
 // Nemotron architecture hyperparameter loading
 static void llama_load_hparams_nemotron(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS, hparams.f_norm_eps);
     ml.get_key(LLM_KV_ATTENTION_CLAMP_KQV,     hparams.f_clamp_kqv, false);
     ml.get_key(LLM_KV_ATTENTION_MAX_ALIBI_BIAS, hparams.f_max_alibi_bias);
@@ -650,6 +670,7 @@ static void llama_load_hparams_nemotron(llama_model_loader & ml, llama_hparams &
 
 // Nemotron-H architecture hyperparameter loading
 static void llama_load_hparams_nemotron_h(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_SSM_CONV_KERNEL,    hparams.ssm_d_conv);
     ml.get_key(LLM_KV_SSM_INNER_SIZE,     hparams.ssm_d_inner);
     ml.get_key(LLM_KV_SSM_STATE_SIZE,     hparams.ssm_d_state);
@@ -670,6 +691,7 @@ static void llama_load_hparams_nemotron_h(llama_model_loader & ml, llama_hparams
 
 // Exaone architecture hyperparameter loading
 static void llama_load_hparams_exaone(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS, hparams.f_norm_eps);
 
     switch (hparams.n_layer) {
@@ -680,6 +702,7 @@ static void llama_load_hparams_exaone(llama_model_loader & ml, llama_hparams & h
 
 // Exaone4 architecture hyperparameter loading
 static void llama_load_hparams_exaone4(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
 
     switch (hparams.n_layer) {
@@ -691,6 +714,7 @@ static void llama_load_hparams_exaone4(llama_model_loader & ml, llama_hparams & 
 
 // Chameleon architecture hyperparameter loading
 static void llama_load_hparams_chameleon(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
 
     switch (hparams.n_layer) {
@@ -701,6 +725,8 @@ static void llama_load_hparams_chameleon(llama_model_loader & ml, llama_hparams 
 
 // WaveTokenizer architecture hyperparameter loading
 static void llama_load_hparams_wavtokenizer_dec(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(type);
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_FEATURES_LENGTH, hparams.n_embd_features);
 
     ml.get_key(LLM_KV_POSNET_EMBEDDING_LENGTH, hparams.posnet.n_embd);
