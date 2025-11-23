@@ -333,6 +333,7 @@ static void llama_load_hparams_plm(llama_model_loader & ml, llama_hparams & hpar
 
 // BitNet architecture hyperparameter loading
 static void llama_load_hparams_bitnet(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
     switch (hparams.n_layer) {
         case 26: type = LLM_TYPE_3B; break;
@@ -391,6 +392,7 @@ static void llama_load_hparams_phi3(llama_model_loader & ml, llama_hparams & hpa
 
 // Plamo architecture hyperparameter loading
 static void llama_load_hparams_plamo(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
 
     switch (hparams.n_layer) {
@@ -401,6 +403,7 @@ static void llama_load_hparams_plamo(llama_model_loader & ml, llama_hparams & hp
 
 // Dream architecture hyperparameter loading
 static void llama_load_hparams_dream(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
 
     // Dream models are primarily 7B with 28 layers
@@ -417,6 +420,7 @@ static void llama_load_hparams_dream(llama_model_loader & ml, llama_hparams & hp
 
 // LLaDA architecture hyperparameter loading
 static void llama_load_hparams_llada(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
     // LLaDA-8B has 32 layers, similar to LLaMA but for diffusion
     switch (hparams.n_layer) {
@@ -432,6 +436,7 @@ static void llama_load_hparams_llada(llama_model_loader & ml, llama_hparams & hp
 
 // LLaDA MoE architecture hyperparameter loading
 static void llama_load_hparams_llada_moe(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_EXPERT_FEED_FORWARD_LENGTH, hparams.n_ff_exp, false);
 
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
@@ -445,6 +450,7 @@ static void llama_load_hparams_llada_moe(llama_model_loader & ml, llama_hparams 
 
 // Qwen architecture hyperparameter loading
 static void llama_load_hparams_qwen(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
 
     switch (hparams.n_layer) {
@@ -456,6 +462,7 @@ static void llama_load_hparams_qwen(llama_model_loader & ml, llama_hparams & hpa
 
 // Qwen2 architecture hyperparameter loading
 static void llama_load_hparams_qwen2(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_POOLING_TYPE, hparams.pooling_type, false);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
     switch (hparams.n_layer) {
@@ -473,6 +480,7 @@ static void llama_load_hparams_qwen2(llama_model_loader & ml, llama_hparams & hp
 
 // Qwen2VL architecture hyperparameter loading
 static void llama_load_hparams_qwen2vl(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key_or_arr(LLM_KV_ROPE_DIMENSION_SECTIONS, hparams.rope_sections, 4, true);
     ml.get_key(LLM_KV_POOLING_TYPE, hparams.pooling_type, false);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
@@ -491,6 +499,7 @@ static void llama_load_hparams_qwen2vl(llama_model_loader & ml, llama_hparams & 
 
 // Qwen3 architecture hyperparameter loading
 static void llama_load_hparams_qwen3(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_POOLING_TYPE, hparams.pooling_type, false);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
     switch (hparams.n_layer) {
@@ -504,6 +513,7 @@ static void llama_load_hparams_qwen3(llama_model_loader & ml, llama_hparams & hp
 
 // Qwen3VL architecture hyperparameter loading
 static void llama_load_hparams_qwen3vl(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_NUM_DEEPSTACK_LAYERS, hparams.n_deepstack_layers, false);
     ml.get_key_or_arr(LLM_KV_ROPE_DIMENSION_SECTIONS, hparams.rope_sections, 4, true);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
@@ -517,6 +527,7 @@ static void llama_load_hparams_qwen3vl(llama_model_loader & ml, llama_hparams & 
 
 // Gemma architecture hyperparameter loading
 static void llama_load_hparams_gemma(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
 
     switch (hparams.n_layer) {
@@ -528,6 +539,7 @@ static void llama_load_hparams_gemma(llama_model_loader & ml, llama_hparams & hp
 
 // Gemma2 architecture hyperparameter loading
 static void llama_load_hparams_gemma2(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     hparams.swa_type = LLAMA_SWA_TYPE_STANDARD;
     hparams.set_swa_pattern(2);
     hparams.attn_soft_cap = true;
