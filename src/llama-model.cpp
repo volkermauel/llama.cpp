@@ -7660,6 +7660,10 @@ int32_t llama_model_n_embd(const llama_model * model) {
     return model->hparams.n_embd;
 }
 
+#ifdef _WIN32
+// Ensure proper export on Windows even when LLAMA_BUILD might not be defined
+__declspec(dllexport)
+#endif
 LLAMA_API int32_t llama_model_n_embd_inp(const llama_model * model) {
     return model->hparams.n_embd_inp();
 }
