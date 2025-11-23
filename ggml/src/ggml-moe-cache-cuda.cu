@@ -14,16 +14,13 @@ struct ggml_moe_cache_cuda : public ggml_moe_cache {
     std::mutex buffer_pool_mutex;
     size_t pinned_buffer_size;
     
-    // Expert data stored in CPU memory (original location)
-    const ggml_tensor* expert_source;
-    
     // Constructor
     ggml_moe_cache_cuda(
         ggml_backend_t backend,
         const ggml_moe_cache_config& config,
         int num_experts,
         ggml_moe_cache_interface* impl
-    ) : ggml_moe_cache(backend, config, num_experts, impl) {
+    ) : ggml_moe_cache(backend, config, /*num_layers=*/1, num_experts, impl) {
         // Create dedicated transfer stream
         cudaStreamCreateWithFlags(&transfer_stream, cudaStreamNonBlocking);
         

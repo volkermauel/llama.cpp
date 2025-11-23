@@ -23,9 +23,6 @@ struct ggml_moe_cache_concurrent : public ggml_moe_cache {
     // Wait-free buffer pool for transfers
     ggml_moe_lockfree::waitfree_buffer_pool buffer_pool;
     
-    // Expert source tensor for size calculations
-    const ggml_tensor* expert_source;
-    
     // Compression interface
     ggml_moe_compression_interface* compressor;
     
@@ -60,7 +57,7 @@ struct ggml_moe_cache_concurrent : public ggml_moe_cache {
         const ggml_moe_cache_config& config,
         int num_experts,
         ggml_moe_cache_interface* impl
-    ) : ggml_moe_cache(backend, config, num_experts, impl), expert_source(nullptr), compressor(nullptr) {
+    ) : ggml_moe_cache(backend, config, /*num_layers=*/1, num_experts, impl), compressor(nullptr) {
         // Initialize lock-free data structures
         cache_map.initialize(std::max(size_t(1024), size_t(num_experts * 2)));
         

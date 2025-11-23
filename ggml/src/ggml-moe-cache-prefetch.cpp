@@ -204,7 +204,15 @@ ggml_moe_cache::ggml_moe_cache(
     int num_layers,
     int num_experts_per_layer,
     ggml_moe_cache_interface* impl
-) : config(config), backend(backend), num_layers(num_layers), num_experts_per_layer(num_experts_per_layer), impl(impl) {
+) : config(config),
+    backend(backend),
+    backend_context(nullptr),
+    num_layers(num_layers),
+    num_experts_per_layer(num_experts_per_layer),
+    stats(),
+    prefetch_engine(nullptr),
+    expert_source(nullptr),
+    impl(impl) {
     // Initialize prefetch engine if enabled
     if (config.enable_prefetch) {
         prefetch_engine = std::make_unique<ggml_moe_prefetch_engine>();

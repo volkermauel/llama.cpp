@@ -51,9 +51,6 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
     // Backend buffer type for GPU allocations
     ggml_backend_buffer_type_t gpu_buft;
     
-    // Expert source tensor for size calculations
-    const ggml_tensor* expert_source;
-    
     // Constructor
     // Constructor
     ggml_moe_cache_gpu(
@@ -63,7 +60,7 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
         int num_experts_per_layer,
         ggml_moe_cache_interface* impl,
         void* stream
-    ) : ggml_moe_cache(backend, config, num_layers, num_experts_per_layer, impl), compute_stream(stream), expert_source(nullptr) {
+    ) : ggml_moe_cache(backend, config, num_layers, num_experts_per_layer, impl), compute_stream(stream) {
         // Get GPU buffer type for this backend
         gpu_buft = ggml_backend_get_default_buffer_type(backend);
         

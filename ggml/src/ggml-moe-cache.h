@@ -234,6 +234,9 @@ struct ggml_moe_cache {
     
     // Pre-fetch engine
     std::unique_ptr<ggml_moe_prefetch_engine> prefetch_engine;
+
+    // Source tensor for experts (needed for size calculation and offsets)
+    const ggml_tensor* expert_source = nullptr;
     
     // Thread safety
     mutable std::mutex cache_mutex;
