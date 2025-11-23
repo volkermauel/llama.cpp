@@ -53,6 +53,9 @@ struct time_meas {
 
 void replace_all(std::string & s, const std::string & search, const std::string & replace);
 
+// format function declaration
+std::string format(const char * fmt, ...);
+
 
 std::string llama_format_tensor_shape(const std::vector<int64_t> & ne);
 std::string llama_format_tensor_shape(const struct ggml_tensor * t);
