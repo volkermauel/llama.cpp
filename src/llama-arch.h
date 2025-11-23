@@ -551,6 +551,7 @@ const char * llama_arch_name(llm_arch arch);
 
 
 llama_rope_scaling_type llama_rope_scaling_type_from_string(const std::string & name);
+std::string llama_rope_scaling_type_name(llama_rope_scaling_type rope_scaling_type);
 
 llm_arch llm_arch_from_string(const std::string & name);
 
