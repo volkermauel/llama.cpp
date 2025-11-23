@@ -50,25 +50,27 @@ std::string ggml_format(const char * fmt, ...) {
 }
 
 // Helper function for formatting expert keys
-std::string ggml_moe_format_expert_key(int layer_id, int expert_id) {
+const char* ggml_moe_format_expert_key(int layer_id, int expert_id) {
+    static thread_local char buffer[64];
     if (expert_id >= 0) {
-        return ggml_format("L%d_E%d", layer_id, expert_id);
+        snprintf(buffer, sizeof(buffer), "L%d_E%d", layer_id, expert_id);
     } else {
-        return ggml_format("L%d_Special", layer_id);
+        snprintf(buffer, sizeof(buffer), "L%d_Special", layer_id);
     }
+    return buffer;
 }
 
 // Debug logging function implementations
 void ggml_moe_log_prefetch(int layer_id, int expert_id, size_t size_mb,
                            const char* source, const char* destination) {
     GGML_MOE_LOG_IF_ENABLED(debug, "[MoE Cache] Prefetch expert %s: %zu MB from %s to %s\n",
-                            ggml_moe_format_expert_key(layer_id, expert_id).c_str(),
+                            ggml_moe_format_expert_key(layer_id, expert_id),
                             size_mb, source, destination);
 }
 
 void ggml_moe_log_eviction(int layer_id, int expert_id, const char* reason) {
     GGML_MOE_LOG_IF_ENABLED(eviction, "[MoE Cache] Evicting expert %s (Reason: %s)\n",
-                            ggml_moe_format_expert_key(layer_id, expert_id).c_str(), reason);
+                            ggml_moe_format_expert_key(layer_id, expert_id), reason);
 }
 
 void ggml_moe_log_cache_stats(const ggml_moe_cache* cache) {
@@ -90,27 +92,27 @@ void ggml_moe_log_layer_assignment(int layer_id, const char* device_type, const 
 }
 
 void ggml_moe_log_transfer(const char* direction, size_t size_mb, const char* details) {
-    GGML_MOE_LOG_IF_ENABLED(transfer, "[MoE Cache] Transfer %s: %s - %s\n",
-                            direction, ggml_format("%zu MB", size_mb).c_str(), details);
+    GGML_MOE_LOG_IF_ENABLED(transfer, "[MoE Cache] Transfer %s: %zu MB - %s\n",
+                            direction, size_mb, details);
 }
 
 void ggml_moe_log_expert_lifecycle(int layer_id, int expert_id, const char* operation, const char* status) {
     GGML_MOE_LOG_IF_ENABLED(expert_lifecycle, "[MoE Cache] Expert %s %s: %s\n",
-                            ggml_moe_format_expert_key(layer_id, expert_id).c_str(),
+                            ggml_moe_format_expert_key(layer_id, expert_id),
                             operation, status);
 }
 
 void ggml_moe_log_error(int layer_id, int expert_id, const char* operation, int error_code) {
     std::lock_guard<std::mutex> lock(g_moe_debug_mutex);
     printf("[MoE Cache] ERROR for expert %s during %s: code %d\n",
-           ggml_moe_format_expert_key(layer_id, expert_id).c_str(),
+           ggml_moe_format_expert_key(layer_id, expert_id),
            operation, error_code);
     fflush(stdout);
 }
 
 void ggml_moe_log_warning(int layer_id, int expert_id, const char* message) {
     GGML_MOE_LOG_IF_ENABLED(warning, "[MoE Cache] WARNING for expert %s: %s\n",
-                            ggml_moe_format_expert_key(layer_id, expert_id).c_str(), message);
+                            ggml_moe_format_expert_key(layer_id, expert_id), message);
 }
 void ggml_moe_log_performance_metrics(const ggml_moe_cache* cache) {
     if (!cache || !g_moe_debug_config.enable_performance_logging) {

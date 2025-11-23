@@ -32,7 +32,7 @@ void ggml_moe_log_performance_metrics(const ggml_moe_cache* cache);
 void ggml_moe_log_cache_stats_phase5(const ggml_moe_cache* cache);
 
 // Helper function for formatting expert keys
-std::string ggml_moe_format_expert_key(int layer_id, int expert_id);
+const char* ggml_moe_format_expert_key(int layer_id, int expert_id);
 
 // Format function - moved from src to ggml to avoid circular dependencies
 GGML_ATTRIBUTE_FORMAT(1, 2)
@@ -49,5 +49,4 @@ std::string ggml_format(const char * fmt, ...);
 #define llama_moe_log_warning ggml_moe_log_warning
 #define llama_moe_log_performance_metrics ggml_moe_log_performance_metrics
 #define llama_moe_log_cache_stats_phase5 ggml_moe_log_cache_stats_phase5
-#define llama_moe_format_expert_key ggml_moe_format_expert_key
 #define format ggml_format

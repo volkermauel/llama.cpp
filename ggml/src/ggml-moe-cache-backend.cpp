@@ -358,7 +358,7 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
                 
                 // Log transfer operation
                 ggml_moe_log_transfer("VRAM->RAM", expert_size,
-                                      llama_moe_format_expert_key(key.layer_id, key.expert_id).c_str());
+                                      ggml_moe_format_expert_key(key.layer_id, key.expert_id));
             }
         }
     }
@@ -425,7 +425,7 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
         
         // Log transfer operation
         ggml_moe_log_transfer("RAM->VRAM", expert_size,
-                              llama_moe_format_expert_key(layer_id, expert_id).c_str());
+                              ggml_moe_format_expert_key(layer_id, expert_id));
         
         // Log expert lifecycle event
         ggml_moe_log_expert_lifecycle(layer_id, expert_id, "Loaded", "Successfully loaded to GPU");

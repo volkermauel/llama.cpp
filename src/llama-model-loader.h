@@ -12,6 +12,26 @@
 #include <map>
 #include <stdexcept>
 #include <unordered_map>
+#include <cstdarg>
+
+// Local format function for this header
+static std::string format(const char * fmt, ...) {
+    va_list ap;
+    va_list ap_copy;
+    va_start(ap, fmt);
+    va_copy(ap_copy, ap);
+    
+    int size = vsnprintf(NULL, 0, fmt, ap);
+    std::string result;
+    if (size >= 0) {
+        result.resize(size);
+        vsnprintf(&result[0], size + 1, fmt, ap_copy);
+    }
+    
+    va_end(ap_copy);
+    va_end(ap);
+    return result;
+}
 
 using llama_buf_map = std::unordered_map<uint32_t, ggml_backend_buffer_t>;
 
