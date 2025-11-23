@@ -28,9 +28,7 @@ add_library(llama
             llama-mmap.cpp
             llama-model-loader.cpp
             llama-model-saver.cpp
-            llama-model-load.cpp
             llama-model.cpp
-            llama-model-base.cpp
             llama-model-bert.cpp
             llama-model-moe.cpp
             llama-model-specialized.cpp
