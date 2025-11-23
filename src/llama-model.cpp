@@ -407,41 +407,6 @@ static buft_list_t make_gpu_buft_list(ggml_backend_dev_t dev, llama_split_mode s
     return buft_list;
 }
 
-struct llama_model::impl {
-    impl() {}
-    ~impl() {}
-
-    uint64_t n_elements = 0;
-
-    size_t n_bytes = 0;
-
-    std::string desc_str;
-
-    // model memory mapped files
-    llama_mmaps mappings;
-
-    // objects representing data potentially being locked in memory
-    llama_mlocks mlock_bufs;
-    llama_mlocks mlock_mmaps;
-
-    // contexts where the model tensors metadata is stored as well ass the corresponding buffers:
-    std::vector<std::pair<ggml_context_ptr, std::vector<ggml_backend_buffer_ptr>>> ctxs_bufs;
-
-    buft_list_t cpu_buft_list;
-    std::map<ggml_backend_dev_t, buft_list_t> gpu_buft_list;
-
-    struct layer_dev {
-        ggml_backend_dev_t dev;
-        buft_list_t * buft_list;
-    };
-
-    layer_dev dev_input = {};
-    layer_dev dev_output = {};
-    std::vector<layer_dev> dev_layer;
-
-    bool has_tensor_overrides;
-};
-
 llama_model::llama_model(const llama_model_params & params) : params(params), pimpl(std::make_unique<impl>()) {
     pimpl->has_tensor_overrides = params.tensor_buft_overrides && params.tensor_buft_overrides[0].pattern;
 }
@@ -2331,125 +2296,13 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
         return false;
     }
     LLAMA_LOG_INFO("%s: Input layer (embeddings) forced to GPU for performance\n", __func__);
-    pimpl->dev_input = { gpu_dev, &pimpl->gpu_buft_list };
-}
-
-// Force GPU placement for compute-intensive layers
-void llama_model::ensure_embedding_layer_on_gpu() {
-    if (pimpl->dev_input.dev->type != GGML_BACKEND_DEVICE_TYPE_GPU) {
-        LLAMA_LOG_WARN("%s: Embedding layer not on GPU, forcing GPU placement\n", __func__);
-        
-        // Find GPU device
-        ggml_backend_dev_t gpu_dev = ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_GPU);
-        if (!gpu_dev) {
-            LLAMA_LOG_ERROR("%s: No GPU device available for embedding layer\n", __func__);
-            return;
-        }
-        
-        // Update device assignment
-        pimpl->dev_input = {gpu_dev, &pimpl->gpu_buft_list};
-        LLAMA_LOG_INFO("%s: Embedding layer moved to GPU: %s\n", __func__,
-                       ggml_backend_dev_name(gpu_dev));
+    auto it_gpu_buft = pimpl->gpu_buft_list.find(gpu_dev);
+    if (it_gpu_buft == pimpl->gpu_buft_list.end()) {
+        LLAMA_LOG_ERROR("%s: GPU buffer list not initialized for embedding device\n", __func__);
+        return false;
     }
-}
-
-void llama_model::ensure_output_layer_on_gpu() {
-    // Similar logic for output layer
-    // Check current placement and force GPU if needed
-    LLAMA_LOG_INFO("%s: Output layer GPU placement ensured\n", __func__);
-}
-
-// Validate critical layers are on GPU
-bool llama_model::validate_critical_layers_on_gpu() const {
-    bool valid = true;
-    
-    // Check embedding layer
-    if (pimpl->dev_input.dev->type != GGML_BACKEND_DEVICE_TYPE_GPU) {
-        LLAMA_LOG_ERROR("Embedding layer not on GPU: %s\n",
-                       ggml_backend_dev_name(pimpl->dev_input.dev));
-        valid = false;
-    }
-    
-    // Check output layer
-    // Add output layer validation logic
-    
-    if (valid) {
-        LLAMA_LOG_INFO("All critical layers (embedding, output) are on GPU\n");
-    }
-    
-    return valid;
-}
-
-// Log layer placement decisions
-static void log_layer_placement(const char* layer_name, const char* device_type, const char* reason) {
-    llama_moe_log_layer_assignment(-1, device_type, layer_name); // Use layer_id -1 for special layers
-}
-
-// Log validation results
-static void log_validation_result(bool success, const char* details) {
-    if (success) {
-        LLAMA_LOG_INFO("[MoE Cache] Layer validation passed: %s\n", details);
-    } else {
-        LLAMA_LOG_ERROR("[MoE Cache] Layer validation failed: %s\n", details);
-    }
-}
-
-// Parameter validation that warns if -ngl is too low
-void validate_ngl_for_critical_layers(int n_gpu_layers, int total_layers) {
-    // Embedding and output layers should always be on GPU
-    // Warn if -ngl is set too low to include these layers
-    if (n_gpu_layers < 2) {
-        LLAMA_LOG_WARN("Warning: -ngl %d may not include embedding and output layers\n",
-                       n_gpu_layers);
-        LLAMA_LOG_WARN("For optimal performance, ensure critical layers are on GPU\n");
-    }
-}
-
-// Force GPU placement for compute-intensive layers
-void llama_model::ensure_embedding_layer_on_gpu() {
-    if (pimpl->dev_input.dev->type != GGML_BACKEND_DEVICE_TYPE_GPU) {
-        LLAMA_LOG_WARN("%s: Embedding layer not on GPU, forcing GPU placement\n", __func__);
-        
-        // Find GPU device
-        ggml_backend_dev_t gpu_dev = ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_GPU);
-        if (!gpu_dev) {
-            LLAMA_LOG_ERROR("%s: No GPU device available for embedding layer\n", __func__);
-            return;
-        }
-        
-        // Update device assignment
-        pimpl->dev_input = {gpu_dev, &pimpl->gpu_buft_list};
-        LLAMA_LOG_INFO("%s: Embedding layer moved to GPU: %s\n", __func__,
-                       ggml_backend_dev_name(gpu_dev));
-    }
-}
-
-void llama_model::ensure_output_layer_on_gpu() {
-    // Similar logic for output layer
-    // Check current placement and force GPU if needed
-    LLAMA_LOG_INFO("%s: Output layer GPU placement ensured\n", __func__);
-}
-
-// Validate critical layers are on GPU
-bool llama_model::validate_critical_layers_on_gpu() const {
-    bool valid = true;
-    
-    // Check embedding layer
-    if (pimpl->dev_input.dev->type != GGML_BACKEND_DEVICE_TYPE_GPU) {
-        LLAMA_LOG_ERROR("Embedding layer not on GPU: %s\n",
-                       ggml_backend_dev_name(pimpl->dev_input.dev));
-        valid = false;
-    }
-    
-    // Check output layer
-    // Add output layer validation logic
-    
-    if (valid) {
-        LLAMA_LOG_INFO("All critical layers (embedding, output) are on GPU\n");
-    }
-    
-    return valid;
-}
+    pimpl->dev_input = { gpu_dev, &it_gpu_buft->second };
+    pimpl->devices   = devices;
     // assign the repeating layers to the devices according to the splits
     pimpl->dev_layer.resize(n_layer);
     for (int il = 0; il < n_layer; ++il) {
@@ -7811,6 +7664,7 @@ LLAMA_API enum llama_rope_type llama_model_rope_type(const struct llama_model * 
         case LLM_ARCH_MINICPM3:
         case LLM_ARCH_BAILINGMOE2:
         case LLM_ARCH_DOTS1:
+        case LLM_ARCH_MIXTRAL:
         case LLM_ARCH_HUNYUAN_MOE:
         case LLM_ARCH_OPENAI_MOE:
         case LLM_ARCH_HUNYUAN_DENSE:
@@ -7889,7 +7743,6 @@ LLAMA_API int32_t llama_model_desc(const llama_model * model, char * buf, size_t
 
 LLAMA_API uint64_t llama_model_size(const llama_model * model) {
     return model->size();
-}
 }
 
 LLAMA_API const char * llama_model_chat_template(const llama_model * model, const char * name) {
