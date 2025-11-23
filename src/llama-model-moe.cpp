@@ -26,7 +26,6 @@
 #include <stdexcept>
 
 // Forward declarations
-static const char * llm_type_name(llm_type type);
 static const char * llama_expert_gating_func_name(llama_expert_gating_func_type type);
 // llama_rope_scaling_type_name is now defined in llama-arch.cpp
 // llama_rope_scaling_type_from_string is now defined in llama-arch.cpp
@@ -34,6 +33,7 @@ const char * llama_arch_name(llm_arch arch);
 
 // Mixtral architecture hyperparameter loading
 static void llama_load_hparams_mixtral(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);
     ml.get_key(LLM_KV_EXPERT_FEED_FORWARD_LENGTH,  hparams.n_ff_exp, false);
     ml.get_key(LLM_KV_EXPERT_SHARED_FEED_FORWARD_LENGTH, hparams.n_ff_shexp, false);
@@ -47,6 +47,7 @@ static void llama_load_hparams_mixtral(llama_model_loader & ml, llama_hparams & 
 
 // DBRX architecture hyperparameter loading
 static void llama_load_hparams_dbrx(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_EPS, hparams.f_norm_eps);
     ml.get_key(LLM_KV_ATTENTION_CLAMP_KQV,     hparams.f_clamp_kqv);
 
@@ -58,6 +59,7 @@ static void llama_load_hparams_dbrx(llama_model_loader & ml, llama_hparams & hpa
 
 // Qwen2MoE architecture hyperparameter loading
 static void llama_load_hparams_qwen2moe(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_EXPERT_FEED_FORWARD_LENGTH,        hparams.n_ff_exp, false);
     ml.get_key(LLM_KV_EXPERT_SHARED_FEED_FORWARD_LENGTH, hparams.n_ff_shexp, false);
 
@@ -71,6 +73,7 @@ static void llama_load_hparams_qwen2moe(llama_model_loader & ml, llama_hparams &
 
 // Qwen3MoE architecture hyperparameter loading
 static void llama_load_hparams_qwen3moe(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
+    GGML_UNUSED(arch);
     ml.get_key(LLM_KV_EXPERT_FEED_FORWARD_LENGTH,        hparams.n_ff_exp, false);
 
     ml.get_key(LLM_KV_ATTENTION_LAYERNORM_RMS_EPS, hparams.f_norm_rms_eps);

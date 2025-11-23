@@ -41,6 +41,10 @@
 // Forward declarations
 const char * llama_arch_name(llm_arch arch);
 
+// Declaration for specialized hyperparameter loading function
+void llama_load_hparams_specialized(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch, uint32_t n_vocab) {
+    GGML_UNUSED(n_vocab);
+
 // Mamba architecture hyperparameter loading
 static void llama_load_hparams_mamba(llama_model_loader & ml, llama_hparams & hparams, llm_type & type, llm_arch arch) {
     ml.get_key(LLM_KV_SSM_CONV_KERNEL,    hparams.ssm_d_conv);
