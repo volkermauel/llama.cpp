@@ -4,6 +4,7 @@
 #include "llama-io.h"
 #include "llama-model.h"
 #include "llama-context.h"
+#include "ggml-backend.h"
 
 #include <algorithm>
 #include <cassert>
@@ -117,10 +118,29 @@ llama_kv_cache::llama_kv_cache(
         ggml_backend_buffer_type_t buft = ggml_backend_cpu_buffer_type();
 
         if (offload) {
-            auto * dev = model.dev_layer(il);
-            buft = ggml_backend_dev_buffer_type(dev);
+            ggml_backend_dev_t dev = model.dev_layer(il);
 
-            dev_name = ggml_backend_dev_name(dev);
+            // If the layer is mapped to CPU but KV offload is requested, fall back to the first GPU device
+            // so KV cache still resides in VRAM. This avoids CPU-bound KV reads/writes when VRAM is available.
+            if (dev == nullptr || ggml_backend_dev_type(dev) == GGML_BACKEND_DEVICE_TYPE_CPU) {
+                ggml_backend_dev_t gpu_dev = ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_GPU);
+                if (!gpu_dev) {
+                    gpu_dev = ggml_backend_dev_by_type(GGML_BACKEND_DEVICE_TYPE_IGPU);
+                }
+                if (gpu_dev) {
+                    LLAMA_LOG_WARN("%s: layer %d is mapped to CPU but KV offload is requested; placing KV cache on GPU %s",
+                                   __func__, il, ggml_backend_dev_name(gpu_dev));
+                    dev = gpu_dev;
+                } else {
+                    LLAMA_LOG_WARN("%s: KV offload requested but no GPU device is available; keeping KV cache on CPU for layer %d",
+                                   __func__, il);
+                }
+            }
+
+            if (dev) {
+                buft = ggml_backend_dev_buffer_type(dev);
+                dev_name = ggml_backend_dev_name(dev);
+            }
         }
 
         LLAMA_LOG_DEBUG("%s: layer %3d: dev = %s\n", __func__, il, dev_name);
