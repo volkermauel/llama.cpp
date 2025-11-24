@@ -3191,16 +3191,16 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
     ).set_env("LLAMA_ARG_MOE_NO_MMAP"));
     
     add_opt(common_arg(
-        {"--moe-debug"}, "",
+        {"--moe-debug"},
         "enable detailed MoE cache debugging and logging",
         [](common_params & params) {
             params.moe_cache_params.enable_stats = true;
-            LLAMA_LOG_INFO("MoE debug logging enabled\n");
+            LOG_INF("MoE debug logging enabled\n");
         }
     ).set_examples({LLAMA_EXAMPLE_MAIN, LLAMA_EXAMPLE_SERVER}));
     
     add_opt(common_arg(
-        {"--moe-stats"}, "",
+        {"--moe-stats"},
         "show MoE cache statistics during inference",
         [](common_params & params) {
             params.moe_cache_params.enable_stats = true;

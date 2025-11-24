@@ -2270,6 +2270,20 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
                            __func__, params.n_gpu_layers);
             return false;
         }
+
+        // When --moe-gpu-experts is requested we do not allow a CPU-only run.
+        if (params.moe_cache_params->n_gpu_experts >= 0) {
+            if (!llama_supports_gpu_offload() || devices.empty()) {
+                LLAMA_LOG_ERROR("%s: --moe-gpu-experts requires a GPU backend; CPU inference is disabled for MoE\n", __func__);
+                return false;
+            }
+            if (!params.moe_cache_params->enable_cache) {
+                LLAMA_LOG_INFO("%s: Re-enabling MoE cache because --moe-gpu-experts was provided (CPU inference is not allowed)", __func__);
+                params.moe_cache_params->enable_cache = true;
+            }
+
+            LLAMA_LOG_INFO("%s: MoE experts will be streamed into VRAM via LRU cache (no CPU inference fallback)", __func__);
+        }
     }
     
     LLAMA_LOG_INFO("%s: Starting tensor loading with MoE GPU experts limit: %d\n", __func__, params.moe_cache_params ? params.moe_cache_params->n_gpu_experts : -1);
@@ -2327,6 +2341,8 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
         throw std::runtime_error(format("%s: no CPU backend found", __func__));
     }
     // Separate regular layers from MoE expert layers
+    // Regular layers follow the requested -ngl split. MoE experts are streamed into GPU memory via the cache (LRU),
+    // so we do not force all layers to stay resident in VRAM.
     int regular_layers_on_gpu = n_gpu_layers;
     int moe_experts_on_gpu = params.moe_cache_params ? params.moe_cache_params->n_gpu_experts : -1;
     
