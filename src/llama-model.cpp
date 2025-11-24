@@ -6703,7 +6703,7 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
                 LLAMA_LOG_WARN("%s: failed to create MoE cache, continuing without caching\n", __func__);
             } else {
                 moe_cache->expert_source = expert_tensor;
-                LLAMA_LOG_INFO("%s: MoE cache ready (budget: %.2f MiB, max experts: %d, ~%.2f MiB per expert)\n",
+                LLAMA_LOG_INFO("%s: MoE cache ready (budget: %.2f MiB, max experts: %zu, ~%.2f MiB per expert)\n",
                                __func__,
                                cache_config.max_cache_size / 1024.0 / 1024.0,
                                cache_config.max_experts,
