@@ -2203,6 +2203,9 @@ static ggml_tensor * find_first_moe_expert_tensor(const std::vector<llama_layer>
 
 static ggml_moe_cache_config build_moe_cache_config(const llama_moe_cache_params & params, const ggml_tensor * expert_tensor, int n_expert_total) {
     ggml_moe_cache_config config = {};
+    
+    LLAMA_LOG_INFO("%s: Building MoE cache config - n_expert_total: %d, n_gpu_experts: %d, vram_budget: %zu bytes\n",
+                   __func__, n_expert_total, params.n_gpu_experts, params.vram_budget);
 
     config.enable_prefetch      = params.enable_prefetch;
     config.prefetch_depth       = params.prefetch_depth;
@@ -2270,6 +2273,9 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
     }
     
     LLAMA_LOG_INFO("%s: Starting tensor loading with MoE GPU experts limit: %d\n", __func__, params.moe_cache_params ? params.moe_cache_params->n_gpu_experts : -1);
+    LLAMA_LOG_INFO("%s: MoE cache enabled: %s, prefetch enabled: %s\n", __func__,
+                   params.moe_cache_params && params.moe_cache_params->enable_cache ? "true" : "false",
+                   params.moe_cache_params && params.moe_cache_params->enable_prefetch ? "true" : "false");
     const auto & split_mode   = params.split_mode;
     const auto & n_gpu_layers = params.n_gpu_layers;
     const auto & use_mlock    = params.use_mlock;
@@ -2323,6 +2329,11 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
     // Separate regular layers from MoE expert layers
     int regular_layers_on_gpu = n_gpu_layers;
     int moe_experts_on_gpu = params.moe_cache_params ? params.moe_cache_params->n_gpu_experts : -1;
+    
+    LLAMA_LOG_INFO("%s: Model has %d experts total, will keep %d on GPU (n_gpu_experts=%d)\n",
+                   __func__, hparams.n_expert,
+                   moe_experts_on_gpu >= 0 ? moe_experts_on_gpu : hparams.n_expert,
+                   moe_experts_on_gpu);
 
     // Log the separation
     if (moe_experts_on_gpu >= 0) {
@@ -6690,6 +6701,9 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
                 *params.moe_cache_params,
                 expert_tensor,
                 hparams.n_expert);
+                
+            LLAMA_LOG_INFO("%s: MoE cache initialization - config.max_experts: %zu, n_expert: %d\n",
+                           __func__, cache_config.max_experts, hparams.n_expert);
 
             const int expert_count = expert_tensor->ne[2] > 0 ? (int) expert_tensor->ne[2] : hparams.n_expert;
             const size_t per_expert_bytes = (expert_tensor->ne[2] > 0) ? ggml_nbytes(expert_tensor) / (size_t) expert_tensor->ne[2] : 0;
@@ -6703,11 +6717,12 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
                 LLAMA_LOG_WARN("%s: failed to create MoE cache, continuing without caching\n", __func__);
             } else {
                 moe_cache->expert_source = expert_tensor;
-                LLAMA_LOG_INFO("%s: MoE cache ready (budget: %.2f MiB, max experts: %zu, ~%.2f MiB per expert)\n",
+                LLAMA_LOG_INFO("%s: MoE cache ready (budget: %.2f MiB, max experts: %zu, ~%.2f MiB per expert, n_gpu_experts: %d)\n",
                                __func__,
                                cache_config.max_cache_size / 1024.0 / 1024.0,
                                cache_config.max_experts,
-                               per_expert_bytes / 1024.0 / 1024.0);
+                               per_expert_bytes / 1024.0 / 1024.0,
+                               params.moe_cache_params->n_gpu_experts);
             }
         }
     }

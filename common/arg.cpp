@@ -3160,7 +3160,7 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
     // MoE cache parameters
     add_opt(common_arg(
         {"--moe-gpu-experts"}, "N",
-        "number of experts to keep in GPU memory (default: 0 = disabled)",
+        "number of experts to keep in GPU memory (default: 0 = disabled, -1 = auto)",
         [](common_params & params, int value) {
             params.moe_cache_params.n_gpu_experts = value;
         }
@@ -3189,6 +3189,23 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
             params.moe_cache_params.experts_no_mmap = true;
         }
     ).set_env("LLAMA_ARG_MOE_NO_MMAP"));
+    
+    add_opt(common_arg(
+        {"--moe-debug"}, "",
+        "enable detailed MoE cache debugging and logging",
+        [](common_params & params) {
+            params.moe_cache_params.enable_stats = true;
+            LLAMA_LOG_INFO("MoE debug logging enabled\n");
+        }
+    ).set_examples({LLAMA_EXAMPLE_MAIN, LLAMA_EXAMPLE_SERVER}));
+    
+    add_opt(common_arg(
+        {"--moe-stats"}, "",
+        "show MoE cache statistics during inference",
+        [](common_params & params) {
+            params.moe_cache_params.enable_stats = true;
+        }
+    ).set_examples({LLAMA_EXAMPLE_MAIN, LLAMA_EXAMPLE_SERVER}));
 
     // MoE compression parameters
     add_opt(common_arg(

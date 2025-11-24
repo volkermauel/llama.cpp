@@ -68,5 +68,11 @@ struct llama_moe_cache_params {
 
 // C API extensions - these will be properly defined when llama.h is included
 struct llama_context_params llama_context_default_params_with_moe(void);
+
+// Deprecated: Use llama_model_params_set_moe_cache instead
 void llama_context_params_set_moe_cache(struct llama_context_params* params,
                                        const struct llama_moe_cache_params* moe_params);
+
+// New API: Set MoE cache parameters in model params (recommended)
+void llama_model_params_set_moe_cache(struct llama_model_params* params,
+                                     const struct llama_moe_cache_params* moe_params);
