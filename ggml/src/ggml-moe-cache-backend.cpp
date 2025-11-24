@@ -815,12 +815,8 @@ static ggml_moe_cache_interface* ggml_moe_cache_get_interface_gpu() {
 
 // Implementation of GPU interface function
 static ggml_moe_cache_interface* ggml_moe_cache_get_interface_gpu_impl() {
-#ifdef GGML_GPU_MOE_CACHE
     static ggml_moe_cache_interface_gpu interface;
     return &interface;
-#else
-    return nullptr;
-#endif
 }
 
 // Update backend detection to include generic GPU backend
@@ -837,9 +833,10 @@ ggml_moe_cache_interface* ggml_moe_cache_get_interface(ggml_backend_t backend) {
         return const_cast<ggml_moe_cache_interface*>(ggml_moe_cache_get_interface_hip());
     }
 #endif
-    
-#ifdef GGML_GPU_MOE_CACHE
-    // Check if this is a GPU backend (Vulkan, SYCL, Metal, etc.)
+
+    // Generic GPU backend fallback (covers runtime-loaded backends too)
+    // Do not rely on compile-time GPU defines here so that MoE caching works
+    // when GPU backends are provided as plugins (GGML_BACKEND_DL).
     ggml_backend_dev_t device = ggml_backend_get_device(backend);
     if (device) {
         enum ggml_backend_dev_type dev_type = ggml_backend_dev_type(device);
@@ -848,7 +845,6 @@ ggml_moe_cache_interface* ggml_moe_cache_get_interface(ggml_backend_t backend) {
             return ggml_moe_cache_get_interface_gpu();
         }
     }
-#endif
     
     return nullptr;
 }
