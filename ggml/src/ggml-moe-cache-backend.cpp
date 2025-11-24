@@ -105,7 +105,45 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
             }
         }
     }
-    
+
+    // Compute the byte threshold at which we start evicting (uses eviction_threshold when provided)
+    size_t eviction_byte_limit() const {
+        if (config.max_cache_size == 0) {
+            return 0;
+        }
+        if (config.eviction_threshold > 0.0f && config.eviction_threshold < 1.0f) {
+            return (size_t) (config.max_cache_size * config.eviction_threshold);
+        }
+        return config.max_cache_size;
+    }
+
+    // Ensure we have room for an incoming expert (bytes and slots)
+    void ensure_capacity(size_t incoming_bytes) {
+        size_t current_size = 0;
+        size_t current_slots = 0;
+        {
+            std::lock_guard<std::mutex> lock(cache_mutex);
+            current_size  = stats.current_size;
+            current_slots = cache_map.size();
+        }
+
+        size_t byte_limit = eviction_byte_limit();
+        size_t required_space = 0;
+
+        if (byte_limit > 0 && current_size + incoming_bytes > byte_limit) {
+            required_space = current_size + incoming_bytes - byte_limit;
+        }
+
+        size_t required_slots = 0;
+        if (config.max_experts > 0 && current_slots >= config.max_experts) {
+            required_slots = current_slots + 1 - config.max_experts;
+        }
+
+        if (required_space > 0 || required_slots > 0) {
+            evict_experts(required_space, required_slots);
+        }
+    }
+
     // Get or create pinned buffer
     void* acquire_pinned_buffer(size_t size) {
         std::lock_guard<std::mutex> lock(buffer_pool_mutex);
@@ -284,16 +322,22 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
     }
     
     // Evict experts to make room for new ones (Frequency-Enhanced LRU)
-    void evict_experts(size_t required_space) {
+    void evict_experts(size_t required_space, size_t required_slots = 0) {
         std::lock_guard<std::mutex> lock(cache_mutex);
         
         size_t available_space = config.max_cache_size - stats.current_size;
-        if (available_space >= required_space) {
+        size_t available_slots = config.max_experts > 0 && cache_map.size() < config.max_experts
+            ? config.max_experts - cache_map.size()
+            : 0;
+
+        if (available_space >= required_space && (required_slots == 0 || available_slots >= required_slots)) {
             return;  // Enough space available
         }
         
         size_t space_to_free = required_space - available_space;
+        size_t slots_to_free = required_slots > available_slots ? required_slots - available_slots : 0;
         size_t freed_space = 0;
+        size_t freed_slots = 0;
         
         // Build list of eviction candidates with priority scores
         std::vector<std::pair<ggml_moe_expert_key, double>> eviction_candidates;
@@ -318,7 +362,7 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
         // Evict experts based on priority until we have enough space
         for (const std::pair<ggml_moe_expert_key, double>& candidate : eviction_candidates) {
             const ggml_moe_expert_key& key = candidate.first;
-            if (freed_space >= space_to_free) {
+            if (freed_space >= space_to_free && freed_slots >= slots_to_free) {
                 break; // Enough space freed
             }
             
@@ -338,6 +382,7 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
                 freed_space += expert_size;
                 stats.current_size -= expert_size;
                 stats.evictions++;
+                freed_slots++;
                 stats.total_transfers_vram_to_ram++;
                 
                 // Update expert status
@@ -375,8 +420,8 @@ struct ggml_moe_cache_gpu : public ggml_moe_cache {
         // Log expert lifecycle event
         ggml_moe_log_expert_lifecycle(layer_id, expert_id, "Loading", "Starting async load");
         
-        // Evict experts if necessary
-        evict_experts(expert_size);
+        // Evict experts if necessary (respect byte threshold and max_experts)
+        ensure_capacity(expert_size);
         
         // Check if we have enough space after eviction
         if (stats.current_size + expert_size > config.max_cache_size) {
